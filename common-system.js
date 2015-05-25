@@ -19,6 +19,7 @@ function System(location, description, options) {
     self.location = location;
     self.description = description;
     self.dependencies = {};
+    self.main = null;
     self.resources = options.resources || {}; // by system.name / module.id
     self.modules = options.modules || {}; // by system.name/module.id
     self.systems = options.systems || {}; // by system.name
@@ -30,6 +31,7 @@ function System(location, description, options) {
     self.node = !!options.node;
     self.browser = !!options.browser;
     self.parent = options.parent;
+    self.root = options.root || self;
     // TODO options.optimize
     // TODO options.instrument
     // TODO options.analyzers, options.compilers, options.translators (either
@@ -59,6 +61,7 @@ System.prototype.import = function importModule(id) {
     var self = this;
     return self.load(id)
     .then(function onModuleLoaded() {
+        self.root.main = self.lookup(id);
         return self.require(id);
     });
 };
@@ -123,7 +126,7 @@ System.prototype.requireInternalModule = function requireInternalModule(id, abs,
         );
     }
 
-    module.require = self.makeRequire(module.id);
+    module.require = self.makeRequire(module.id, self.root.main);
     module.exports = {};
 
     // Execute the factory function:
@@ -140,11 +143,13 @@ System.prototype.requireInternalModule = function requireInternalModule(id, abs,
     return module.exports;
 };
 
-System.prototype.makeRequire = function makeRequire(abs) {
+System.prototype.makeRequire = function makeRequire(abs, main) {
     var self = this;
-    return function require(rel) {
+    function require(rel) {
         return self.require(rel, abs);
     };
+    require.main = main;
+    return require;
 };
 
 // System:
@@ -211,6 +216,7 @@ System.prototype.actuallyLoadSystem = function (name) {
     ]).spread(function onDescriptionAndBuildSystem(description, buildSystem) {
         var system = new System(location, description, {
             parent: self,
+            root: self.root,
             name: name,
             resources: self.resources,
             modules: self.modules,

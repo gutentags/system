@@ -1,4 +1,5 @@
 var test = require('test');
+test.assert(require.main === module, 'require.main === module');
 test.assert(require('dot-slash') === 10, 'main with "./"');
 test.assert(require('js-ext') === 20, 'main with ".js" extension');
 test.assert(require('no-ext') === 30, 'main with no extension');
