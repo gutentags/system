@@ -1,6 +1,6 @@
 {
   "name": "system",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "author": "Kris Kowal <kris@cixar.com>",
   "description": "Flexible module and resource system",
   "license": "BSD 3-Clause",
