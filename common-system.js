@@ -397,6 +397,14 @@ System.prototype.lookupInternalModule = function lookupInternalModule(rel, abs) 
         self.modules[key] = module;
     }
 
+    if (module.filename !== filename) {
+        module.error = new Error(
+            "Can't refer to single module with multiple case conventions: " +
+            JSON.stringify(filename) + " and " +
+            JSON.stringify(module.filename)
+        );
+    }
+
     return module;
 };
 

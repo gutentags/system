@@ -23,7 +23,7 @@ var test = {
 };
 
 Stream([
-    //"case-sensitive",
+    "case-sensitive",
     "comments",
     "compiler-package",
     "compiler",
