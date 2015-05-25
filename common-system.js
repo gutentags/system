@@ -57,12 +57,20 @@ function System(location, description, options) {
     if (description.compilers) { self.addCompilers(description.compilers); }
 }
 
-System.prototype.import = function importModule(id) {
+System.load = function loadSystem(location, options) {
     var self = this;
-    return self.load(id)
+    return self.prototype.loadSystemDescription(location)
+    .then(function (description) {
+        return new self(location, description, options);
+    });
+};
+
+System.prototype.import = function importModule(rel, abs) {
+    var self = this;
+    return self.load(rel, abs)
     .then(function onModuleLoaded() {
-        self.root.main = self.lookup(id);
-        return self.require(id);
+        self.root.main = self.lookup(rel, abs);
+        return self.require(rel, abs);
     });
 };
 

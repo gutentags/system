@@ -44,13 +44,7 @@ function NodeSystem(location, description, options) {
 NodeSystem.prototype = Object.create(CommonSystem.prototype);
 NodeSystem.prototype.constructor = NodeSystem;
 
-NodeSystem.load = function loadSystem(location, options) {
-    var self = this;
-    return self.prototype.loadSystemDescription(location)
-    .then(function (description) {
-        return new self(location, description, options);
-    });
-};
+NodeSystem.load = CommonSystem.load;
 
 NodeSystem.prototype.read = function read(location, charset) {
     var self = this;

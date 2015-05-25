@@ -15,6 +15,8 @@ function isBare(id) {
     return id.indexOf(".", lastSlash) < 0;
 }
 
+// TODO @user/name package names
+
 exports.head = head;
 function head(id) {
     var firstSlash = id.indexOf("/");
