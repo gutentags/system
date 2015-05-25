@@ -12,14 +12,39 @@ In addition, System adds support for configuring module translators (text to
 JavaScript text), dependency analyzers, and compilers (text to module factory
 function).
 
-## Example of usage
+## Examples of usage
+
+```
+npm init
+npm install --save system
+```
+
+To load in Node.js:
 
 ```js
 var System = require("system");
 System.loadSystem(location)
 .then(function (system) {
-    return system.import("./index");
+    return system.import("./entry");
 });
+```
+
+To load in a browser during development:
+
+```html
+<script src="node_modules/system/boot.js" data-import="./entry"></script>
+```
+
+To bundle for deployment:
+
+```
+bundle entry.js > bundle.js
+```
+
+Then to load in production:
+
+```html
+<script src="bundle.js"></script>
 ```
 
 ## History

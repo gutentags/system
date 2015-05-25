@@ -1,6 +1,28 @@
 {
   "name": "system",
+  "version": "0.2.0",
+  "author": "Kris Kowal <kris@cixar.com>",
+  "description": "Flexible module and resource system",
+  "license": "BSD 3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/gutentags/system.git"
+  },
+  "keywords": [
+    "module",
+    "resource",
+    "system",
+    "commonjs",
+    "npm"
+  ],
+  "bugs": {
+    "url": "https://github.com/gutentags/system/issues"
+  },
+  "homepage": "https://github.com/gutentags/system#readme",
   "main": "./system.js",
+  "bin": {
+    "bundle": "./bundle.js"
+  },
   "browser": {
     "./url.js": "./browser-url.js",
     "./system.js": "./browser-system.js"
@@ -14,27 +36,5 @@
   "scripts": {
     "test": "node test",
     "build": "node bundle.js boot-entry.js > boot.js"
-  },
-  "version": "0.2.0",
-  "description": "Flexible module and resource system",
-  "directories": {
-    "test": "test"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@github.com/gutentags/system.git"
-  },
-  "keywords": [
-    "module",
-    "resource",
-    "system",
-    "commonjs",
-    "npm"
-  ],
-  "author": "Kris Kowal <kris@cixar.com>",
-  "license": "BSD 3-Clause",
-  "bugs": {
-    "url": "https://github.com/gutentags/system/issues"
-  },
-  "homepage": "https://github.com/gutentags/system#readme"
+  }
 }
