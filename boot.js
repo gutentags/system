@@ -2298,10 +2298,8 @@ function boot(params) {
     var rel = params.import || "";
 
     return System.load(systemLocation, {
-        modules: module.modules,
         browser: true
     }).then(function onSystemLoaded(system) {
-        console.log(system);
         return system.import(rel, abs);
     });
 }
@@ -2466,6 +2464,7 @@ function System(location, description, options) {
     self.main = null;
     self.resources = options.resources || {}; // by system.name / module.id
     self.modules = options.modules || {}; // by system.name/module.id
+    self.systemLocations = options.systemLocations || {}; // by system.name;
     self.systems = options.systems || {}; // by system.name
     self.systemLoadedPromises = options.systemLoadedPromises || {}; // by system.name
     self.buildSystem = options.buildSystem; // or self if undefined
@@ -2481,6 +2480,7 @@ function System(location, description, options) {
     // TODO options.analyzers, options.compilers, options.translators (either
     // from the build system or from given functions)
     self.systems[self.name] = self;
+    self.systemLocations[self.name] = self.location;
     self.systemLoadedPromises[self.name] = Q(self);
 
     if (options.name != null && options.name !== description.name) {
@@ -2494,7 +2494,7 @@ function System(location, description, options) {
     if (options.node) { self.overlayNode(description); }
 
     if (description.dependencies) { self.addDependencies(description.dependencies); }
-    if (description.devDependencies) { self.addDependencies(description.devDependencies); }
+    if (self.root === self && description.devDependencies) { self.addDependencies(description.devDependencies); }
     if (description.redirects) { self.addRedirects(description.redirects); }
     if (description.translators) { self.addTranslators(description.translators); }
     if (description.analyzers) { self.addAnalyzers(description.analyzers); }
@@ -2566,14 +2566,14 @@ System.prototype.requireInternalModule = function requireInternalModule(id, abs,
     }
 
     // do not reinitialize modules
-    if (module.exports !== null) {
+    if (module.exports != null) {
         return module.exports;
     }
 
     // do not initialize modules that do not define a factory function
-    if (typeof module.factory === "undefined") {
+    if (typeof module.factory !== "function") {
         throw new Error(
-            "Can't require module " + JSON.stringify(module.key) +
+            "Can't require module " + JSON.stringify(module.filename) +
             " because no factory or exports were created by the module"
         );
     }
@@ -2657,7 +2657,7 @@ System.prototype.loadSystemDescription = function loadSystemDescription(location
 System.prototype.actuallyLoadSystem = function (name) {
     var self = this;
     var System = self.constructor;
-    var location = URL.resolve(self.location, "node_modules/" + name + "/");
+    var location = self.systemLocations[name];
     var buildSystem;
     if (self.buildSystem) {
         buildSystem = self.buildSystem.actuallyLoadSystem(name);
@@ -2673,6 +2673,7 @@ System.prototype.actuallyLoadSystem = function (name) {
             resources: self.resources,
             modules: self.modules,
             systems: self.systems,
+            systemLocations: self.systemLocations,
             systemLoadedPromises: self.systemLoadedPromises,
             buildSystem: buildSystem,
             browser: self.browser,
@@ -2813,7 +2814,8 @@ System.prototype.lookup = function lookup(rel, abs) {
         } else if (self.modules[head] && !tail) {
             return self.modules[head];
         } else {
-            throw new Error("Can't lookup"); // TODO
+            var via = abs ? " via " + JSON.stringify(abs) : "";
+            throw new Error("Can't lookup " + JSON.stringify(rel) + via);
         }
     }
     return self.lookupInternalModule(rel, abs);
@@ -2978,6 +2980,10 @@ System.prototype.addDependencies = function addDependencies(dependencies) {
     for (var index = 0; index < names.length; index++) {
         var name = names[index];
         self.dependencies[name] = true;
+        if (!self.systemLocations[name]) {
+            var location = URL.resolve(self.location, "node_modules/" + name + "/");
+            self.systemLocations[name] = location;
+        }
     }
 };
 
@@ -3015,7 +3021,6 @@ System.prototype.inspect = function () {
     var self = this;
     return {type: "system", location: self.location};
 };
-
 
 }],["compile.js","system","compile.js",{},function (require, exports, module, __filename, __dirname){
 
@@ -3056,7 +3061,7 @@ function compile(module) {
              "(require, exports, module, __filename, __dirname) {" +
             module.text +
             "//*/\n})\n//@ sourceURL=" +
-            module.filename
+            module.system.location + '/' + module.filename
         );
     } catch (exception) {
         exception.message = exception.message + " in " + module.filename;
@@ -3112,7 +3117,7 @@ exports.extension = extension;
 function extension(id) {
     var lastSlash = id.lastIndexOf("/");
     var lastDot = id.lastIndexOf(".");
-    if (lastDot < lastSlash) { return ""; }
+    if (lastDot <= lastSlash) { return ""; }
     return id.slice(lastDot + 1);
 }
 

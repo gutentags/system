@@ -20,10 +20,8 @@ function boot(params) {
     var rel = params.import || "";
 
     return System.load(systemLocation, {
-        modules: module.modules,
         browser: true
     }).then(function onSystemLoaded(system) {
-        console.log(system);
         return system.import(rel, abs);
     });
 }

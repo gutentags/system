@@ -35,7 +35,7 @@ exports.extension = extension;
 function extension(id) {
     var lastSlash = id.lastIndexOf("/");
     var lastDot = id.lastIndexOf(".");
-    if (lastDot < lastSlash) { return ""; }
+    if (lastDot <= lastSlash) { return ""; }
     return id.slice(lastDot + 1);
 }
 

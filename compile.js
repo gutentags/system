@@ -32,7 +32,7 @@ function compile(module) {
              "(require, exports, module, __filename, __dirname) {" +
             module.text +
             "//*/\n})\n//@ sourceURL=" +
-            module.filename
+            module.system.location + '/' + module.filename
         );
     } catch (exception) {
         exception.message = exception.message + " in " + module.filename;
