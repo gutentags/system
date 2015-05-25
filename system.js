@@ -6,7 +6,33 @@ var Path = require("path");
 var Location = require("./location");
 var CommonSystem = require("./common-system");
 
-// TODO dependency injection
+var node = [
+    "child_process",
+    "cluster",
+    "crypto",
+    "dns",
+    "domain",
+    "event_emitter",
+    "fs",
+    "http",
+    "https",
+    "net",
+    "os",
+    "path",
+    "punycode",
+    "querystring",
+    "readline",
+    "repl",
+    "smalloc",
+    "stream",
+    "string_decoder",
+    "tls",
+    "tty",
+    "url",
+    "util",
+    "vm",
+    "zlib",
+];
 
 module.exports = NodeSystem;
 
@@ -17,6 +43,15 @@ function NodeSystem(location, description, options) {
 
 NodeSystem.prototype = Object.create(CommonSystem.prototype);
 NodeSystem.prototype.constructor = NodeSystem;
+
+NodeSystem.prototype.overlayNode = function overlayNode() {
+    var self = this;
+    node.forEach(function (id) {
+        self.modules[id] = {factory: function (require, exports, module) {
+            module.exports = require(id);
+        }};
+    });
+};
 
 NodeSystem.prototype.read = function read(location, charset) {
     var self = this;
@@ -57,7 +92,7 @@ NodeSystem.findSystemLocationAndModuleId = function findSystemLocationAndModuleI
             id: modulePath
         };
     }, function (error) {
-        throw new Error("Can't find package: " + path);
+        throw new Error("Can't find package " + JSON.stringify(path));
     });
 };
 

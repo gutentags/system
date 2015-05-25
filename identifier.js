@@ -32,8 +32,8 @@ function tail(id) {
 exports.extension = extension;
 function extension(id) {
     var lastSlash = id.lastIndexOf("/");
-    var lastDot = id.indexOf(".", lastSlash);
-    if (lastDot < 0) { return ""; }
+    var lastDot = id.lastIndexOf(".");
+    if (lastDot < lastSlash) { return ""; }
     return id.slice(lastDot + 1);
 }
 

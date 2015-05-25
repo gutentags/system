@@ -1,7 +1,7 @@
 "use strict";
 
 var Q = require("q");
-var URL = require("url");
+var URL = require("./url");
 var Identifier = require("./identifier");
 var Module = require("./module");
 var Resource = require("./resource");
@@ -27,70 +27,33 @@ function System(location, description, options) {
     self.analyzers = {js: self.analyzeJavaScript};
     self.compilers = {js: self.compileJavaScript, json: self.compileJson};
     self.translators = {};
+    self.node = !!options.node;
+    self.browser = !!options.browser;
+    self.parent = options.parent;
     // TODO options.optimize
     // TODO options.instrument
     // TODO options.analyzers, options.compilers, options.translators (either
     // from the build system or from given functions)
-
     self.systems[self.name] = self;
     self.systemLoadedPromises[self.name] = Q(self);
 
-    if (typeof description.browser === "string") {
-        self.addRedirect("./.js", description.browser);
-    } else if (description.browser && typeof description.browser === "object") {
-        self.addRedirects(description.browser);
+    if (options.name != null && options.name !== description.name) {
+        console.warn("Package loaded by name " + JSON.stringify(options.name) + " bears name " + JSON.stringify(description.name));
     }
 
-    if (description.main != null) {
-        self.addRedirect("./.js", "./" + description.main);
-    }
+    if (description.main != null) { self.addRedirect("", description.main); }
 
-    if (description.dependencies) {
-        self.addDependencies(description.dependencies);
-    }
+    // Overlays:
+    if (options.browser) { self.overlayBrowser(description); }
+    if (options.node) { self.overlayNode(description); }
 
-    if (description.analyzers) {
-        self.addAnalyzers(description.analyzers);
-    }
-
-    if (description.translators) {
-        self.addTranslators(description.translators);
-    }
-
-    if (description.compilers) {
-        self.addCompilers(description.compilers);
-    }
+    if (description.dependencies) { self.addDependencies(description.dependencies); }
+    if (description.devDependencies) { self.addDependencies(description.devDependencies); }
+    if (description.redirects) { self.addRedirects(description.redirects); }
+    if (description.translators) { self.addTranslators(description.translators); }
+    if (description.analyzers) { self.addAnalyzers(description.analyzers); }
+    if (description.compilers) { self.addCompilers(description.compilers); }
 }
-
-System.prototype.addDependencies = function addDependencies(dependencies) {
-    var self = this;
-    var names = Object.keys(dependencies);
-    for (var index = 0; index < names.length; index++) {
-        var name = names[index];
-        self.dependencies[name] = true;
-    }
-};
-
-System.prototype.addRedirects = function addRedirects(redirects) {
-    var self = this;
-    var sources = Object.keys(redirects);
-    for (var index = 0; index < sources.length; index++) {
-        var source = sources[index];
-        var target = redirects[source];
-        self.addRedirect(source, target);
-    }
-};
-
-System.prototype.addRedirect = function addRedirect(source, target) {
-    var self = this;
-    source = Identifier.resolve(source);
-    target = Identifier.resolve(target, source);
-    self.lookup(source).redirect = target;
-};
-
-// TODO addAnalyzers
-// TODO addTranslators
-// TODO addCompilers
 
 System.prototype.import = function importModule(id) {
     var self = this;
@@ -106,38 +69,45 @@ System.prototype.import = function importModule(id) {
 System.prototype.require = function require(rel, abs) {
     var self = this;
 
+    var id, module;
     if (Identifier.isAbsolute(rel)) {
         var head = Identifier.head(rel);
         var tail = Identifier.tail(rel);
-        return self.getSystem(head).require(tail);
+        if (self.dependencies[head]) {
+            return self.getSystem(head, abs).requireInternalModule(tail, abs);
+        } else if (self.modules[head]) {
+            return self.requireInternalModule(rel, abs, self.modules[rel]);
+        } else {
+            var via = abs ? " via " + JSON.stringify(abs) : "";
+            throw new Error("Can't require " + JSON.stringify(rel) + via);
+        }
+    } else {
+        id = self.normalizeIdentifier(Identifier.resolve(rel, abs));
+        return self.requireInternalModule(id, abs);
     }
 
-    var id = self.normalizeIdentifier(rel, abs);
-    var module = self.lookup(id);
+};
 
-    // check for consistent case convention
-    //if (module.id !== id) {
-    //    throw new Error(
-    //        "Can't require module " + JSON.stringify(module.id) +
-    //        " by alternate spelling " + JSON.stringify(id)
-    //    );
+System.prototype.requireInternalModule = function requireInternalModule(id, abs, module) {
+    var self = this;
+    module = module || self.lookupInternalModule(id);
+
+    //// handle redirects
+    //while (module.redirect != null) {
+    //    module = self.modules[module.redirect];
     //}
 
     // check for load error
     if (module.error) {
         var error = module.error;
+        var via = abs ? " via " + JSON.stringify(abs) : "";
         error.message = (
             "Can't require module " + JSON.stringify(module.id) +
-            " via " + JSON.stringify(abs) +
+            via +
             " in " + JSON.stringify(self.name || self.location) +
             " because " + error.message
         );
         throw error;
-    }
-
-    // handle redirects
-    if (module.redirect !== null) {
-        return self.require(module.redirect, abs);
     }
 
     // do not reinitialize modules
@@ -146,7 +116,7 @@ System.prototype.require = function require(rel, abs) {
     }
 
     // do not initialize modules that do not define a factory function
-    if (module.factory === null) {
+    if (typeof module.factory === "undefined") {
         throw new Error(
             "Can't require module " + JSON.stringify(module.key) +
             " because no factory or exports were created by the module"
@@ -155,7 +125,6 @@ System.prototype.require = function require(rel, abs) {
 
     module.require = self.makeRequire(module.id);
     module.exports = {};
-    module.dirname = URL.resolve(module.filename, ".");
 
     // Execute the factory function:
     module.factory.call(
@@ -182,25 +151,29 @@ System.prototype.makeRequire = function makeRequire(abs) {
 
 // Should only be called if the system is known to have already been loaded by
 // system.loadSystem.
-System.prototype.getSystem = function getSystem(name) {
+System.prototype.getSystem = function getSystem(rel, abs) {
     var self = this;
-    var hasDependency = self.dependencies[name];
+    var hasDependency = self.dependencies[rel];
     if (!hasDependency) {
-        throw new Error("Can't get dependency " + name); // TODO
+        var via = abs ? " via " + JSON.stringify(abs) : "";
+        throw new Error("Can't get dependency " + JSON.stringify(rel) + " in package named " + JSON.stringify(self.name) + via);
     }
-    var dependency = self.systems[name];
+    var dependency = self.systems[rel];
     if (!dependency) {
-        throw new Error("Can't get dependency " + name); // TODO
+        var via = abs ? " via " + JSON.stringify(abs) : "";
+        throw new Error("Can't get dependency " + JSON.stringify(rel) + " in package named " + JSON.stringify(self.name) + via); // TODO
     }
     return dependency;
 };
 
 System.prototype.loadSystem = function (name) {
     var self = this;
-    var hasDependency = self.dependencies[name];
-    if (!hasDependency) {
-        throw new Error("Can't load module " + name + " because not in dependencies of " + self.name); // TODO
-    }
+    //var hasDependency = self.dependencies[name];
+    //if (!hasDependency) {
+    //    var error = new Error("Can't load module " + JSON.stringify(name));
+    //    error.module = true;
+    //    throw error;
+    //}
     var loadingSystem = self.systemLoadedPromises[name];
     if (!loadingSystem) {
          loadingSystem = self.actuallyLoadSystem(name);
@@ -237,11 +210,15 @@ System.prototype.actuallyLoadSystem = function (name) {
         buildSystem
     ]).spread(function onDescriptionAndBuildSystem(description, buildSystem) {
         var system = new System(location, description, {
+            parent: self,
+            name: name,
             resources: self.resources,
             modules: self.modules,
             systems: self.systems,
             systemLoadedPromises: self.systemLoadedPromises,
-            buildSystem: buildSystem
+            buildSystem: buildSystem,
+            browser: self.browser,
+            node: self.node
         });
         self.systems[system.name] = system;
         return system;
@@ -249,6 +226,7 @@ System.prototype.actuallyLoadSystem = function (name) {
 };
 
 System.prototype.getBuildSystem = function getBuildSystem() {
+    var self = this;
     return self.buildSystem || self;
 };
 
@@ -259,7 +237,7 @@ System.prototype.getResource = function getResource(rel, abs) {
     if (Identifier.isAbsolute(rel)) {
         var head = Identifier.head(rel);
         var tail = Identifier.tail(rel);
-        return self.getSystem(head).getInternalResource(tail);
+        return self.getSystem(head, abs).getInternalResource(tail);
     } else {
         return self.getInternalResource(Identifier.resolve(rel, abs));
     }
@@ -300,9 +278,8 @@ System.prototype.getInternalResource = function getInternalResource(id) {
 
 // Module:
 
-System.prototype.normalizeIdentifier = function (rel, abs) {
+System.prototype.normalizeIdentifier = function (id) {
     var self = this;
-    var id = Identifier.resolve(rel, abs);
     var extension = Identifier.extension(id);
     if (
         !has.call(self.translators, extension) &&
@@ -321,7 +298,11 @@ System.prototype.load = function load(rel, abs) {
     if (Identifier.isAbsolute(rel)) {
         var head = Identifier.head(rel);
         var tail = Identifier.tail(rel);
-        return self.loadSystem(head).invoke("loadInternalModule", "./" + tail);
+        if (self.dependencies[head]) {
+            return self.loadSystem(head).invoke("loadInternalModule", tail);
+        } else {
+            return Q();
+        }
     } else {
         return self.loadInternalModule(rel, abs);
     }
@@ -329,62 +310,79 @@ System.prototype.load = function load(rel, abs) {
 
 System.prototype.loadInternalModule = function loadInternalModule(rel, abs) {
     var self = this;
-    var id = self.normalizeIdentifier(rel, abs);
-    var module = self.lookup(id);
+    var id = self.normalizeIdentifier(rel);
+    var module = self.lookupInternalModule(id, abs);
     if (module.loadedPromise) {
+        // Returning a resolved promise allows us to continue if there is a
+        // dependency cycle.
+        // TODO race condition with multiple parallel loads. The loadedPromise
+        // map should be created for each entry into the load() function.
         return Q();
     }
-    module.resource = self.getInternalResource(module.id);
-    module.extension = Identifier.extension(id);
     module.loadedPromise = Q.try(function () {
         if (module.factory == null && module.exports == null) {
-            return self.read(module.resource.location, "utf-8")
+            return self.read(module.location, "utf-8")
             .then(function (text) {
                 module.text = text;
             });
         }
     }).then(function () {
         return self.translate(module);
+        // TODO optimize
+        // TODO instrument
+        // TODO facilitate source maps and source map transforms
     }).then(function () {
         return self.analyze(module);
     }).then(function () {
         return Q.all(module.dependencies.map(function (dependency) {
-            return self.load(dependency, id);
+            return self.load(dependency, module.id);
         }));
     }).then(function () {
         return self.compile(module);
+    }, function (error) {
+        module.error = error;
     });
     return module.loadedPromise;
 };
 
-System.prototype.lookup = function lookup(rel, abs, memo) {
+System.prototype.lookup = function lookup(rel, abs) {
     var self = this;
-    var module = self.lookupRedirect(rel, abs);
-
-    // Handle rdirects
-    if (module.redirect) {
-        memo = memo || {};
-        if (memo[module.key]) {
-            throw new Error("Can't resolve redirect cycle about " + module.key);
+    if (Identifier.isAbsolute(rel)) {
+        var head = Identifier.head(rel);
+        var tail = Identifier.tail(rel);
+        if (self.dependencies[head]) {
+            return self.getSystem(head, abs).lookup(tail);
+        } else if (self.modules[head] && !tail) {
+            return self.modules[head];
+        } else {
+            throw new Error("Can't lookup"); // TODO
         }
-        memo[module.key] = true;
-        return self.lookup(module.redirect, abs, memo);
     }
-
-    return module;
+    return self.lookupInternalModule(rel, abs);
 };
 
-System.prototype.lookupRedirect = function lookupRedirect(rel, abs) {
+System.prototype.lookupInternalModule = function lookupInternalModule(rel, abs) {
     var self = this;
-    var filename = self.name + '/' + rel;
+
+    var normal = Identifier.resolve(rel, abs);
+    var id = self.normalizeIdentifier(normal);
+
+    var filename = self.name + '/' + id;
     // This module system is case-insensitive, but mandates that a module must
     // be consistently identified by the same case convention to avoid problems
     // when migrating to case-sensitive file systems.
     var key = filename.toLowerCase();
     var module = self.modules[key];
+
+    if (module && module.redirect) {
+        return self.lookupInternalModule(module.redirect);
+    }
+
     if (!module) {
         module = new Module();
-        module.id = rel;
+        module.id = id;
+        module.extension = Identifier.extension(id);
+        module.location = URL.resolve(self.location, id);
         module.filename = filename;
         module.dirname = Identifier.dirname(filename);
         module.key = key;
@@ -393,16 +391,10 @@ System.prototype.lookupRedirect = function lookupRedirect(rel, abs) {
         self.modules[key] = module;
     }
 
-    // Check for consistent case convention
-    if (module.id !== rel) {
-        throw new Error(
-            "Can't lookup module " + JSON.stringify(module.id) +
-            " by alternate spelling " + JSON.stringify(rel)
-        );
-    }
-
     return module;
 };
+
+// Translate:
 
 System.prototype.translate = function translate(module) {
     var self = this;
@@ -415,6 +407,35 @@ System.prototype.translate = function translate(module) {
     }
 };
 
+System.prototype.addTranslators = function addTranslators(translators) {
+    var self = this;
+    var extensions = Object.keys(translators);
+    for (var index = 0; index < extensions.length; index++) {
+        var extension = extensions[index];
+        var id = translators[extension];
+        self.addTranslator(extension, id);
+    }
+};
+
+System.prototype.addTranslator = function (extension, id) {
+    var self = this;
+    self.translators[extension] = self.makeTranslator(id);
+};
+
+System.prototype.makeTranslator = function makeTranslator(id) {
+    var self = this;
+    return function translate(module) {
+        return self.getBuildSystem()
+        .import(id)
+        .then(function (translate) {
+            module.extension = "js";
+            return translate(module);
+        })
+    }
+};
+
+// Analyze:
+
 System.prototype.analyze = function analyze(module) {
     var self = this;
     if (
@@ -425,6 +446,16 @@ System.prototype.analyze = function analyze(module) {
         return self.analyzers[module.extension](module);
     }
 };
+
+System.prototype.analyzeJavaScript = function analyzeJavaScript(module) {
+    var self = this;
+    module.dependencies.push.apply(module.dependencies, parseDependencies(module.text));
+};
+
+// TODO addAnalyzers
+// TODO addAnalyzer
+
+// Compile:
 
 System.prototype.compile = function (module) {
     var self = this;
@@ -439,21 +470,83 @@ System.prototype.compile = function (module) {
     }
 };
 
-System.prototype.inspect = function () {
-    var self = this;
-    return {type: "system", location: self.location};
-};
-
-System.prototype.analyzeJavaScript = function (module) {
-    var self = this;
-    module.dependencies.push.apply(module.dependencies, parseDependencies(module.text));
-};
-
-System.prototype.compileJavaScript = function (module) {
+System.prototype.compileJavaScript = function compileJavaScript(module) {
     compile(module);
 };
 
-System.prototype.compileJson = function (module) {
+System.prototype.compileJson = function compileJson(module) {
     module.exports = JSON.parse(module.text);
+};
+
+System.prototype.addCompilers = function addCompilers(compilers) {
+    var self = this;
+    var extensions = Object.keys(compilers);
+    for (var index = 0; index < extensions.length; index++) {
+        var extension = extensions[index];
+        var id = compilers[extension];
+        self.addCompiler(extension, id);
+    }
+};
+
+System.prototype.addCompiler = function (extension, id) {
+    var self = this;
+    self.compilers[extension] = self.makeCompiler(id);
+};
+
+System.prototype.makeCompiler = function makeCompiler(id) {
+    var self = this;
+    return function compile(module) {
+        return self.getBuildSystem()
+        .import(id)
+        .then(function (compile) {
+            return compile(module);
+        });
+    }
+};
+
+// Dependencies:
+
+System.prototype.addDependencies = function addDependencies(dependencies) {
+    var self = this;
+    var names = Object.keys(dependencies);
+    for (var index = 0; index < names.length; index++) {
+        var name = names[index];
+        self.dependencies[name] = true;
+    }
+};
+
+// Redirects:
+
+System.prototype.addRedirects = function addRedirects(redirects) {
+    var self = this;
+    var sources = Object.keys(redirects);
+    for (var index = 0; index < sources.length; index++) {
+        var source = sources[index];
+        var target = redirects[source];
+        self.addRedirect(source, target);
+    }
+};
+
+System.prototype.addRedirect = function addRedirect(source, target) {
+    var self = this;
+    source = self.normalizeIdentifier(Identifier.resolve(source));
+    target = self.normalizeIdentifier(Identifier.resolve(target, source));
+    self.modules[self.name + "/" + source] = {redirect: target};
+};
+
+// Etc:
+
+System.prototype.overlayBrowser = function overlayBrowser(description) {
+    var self = this;
+    if (typeof description.browser === "string") {
+        self.addRedirect("", description.browser);
+    } else if (description.browser && typeof description.browser === "object") {
+        self.addRedirects(description.browser);
+    }
+};
+
+System.prototype.inspect = function () {
+    var self = this;
+    return {type: "system", location: self.location};
 };
 

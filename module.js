@@ -9,12 +9,13 @@ function Module() {
     this.key = null;
     this.filename = null;
     this.dirname = null;
-    this.type = null; // XXX ???
     this.exports = null;
     this.redirect = null;
-    this.resource = null;
+    this.text = null;
     this.factory = null;
     this.dependencies = [];
-    this.dependees = {};
     this.loadedPromise = null;
+    // for bundles
+    this.index = null;
+    this.bundled = false;
 }

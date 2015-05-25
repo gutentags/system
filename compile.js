@@ -23,7 +23,7 @@ function compile(module) {
     //      TODO: investigate why this isn't working in Firebug.
     // 3. set displayName property on the factory function (Safari, Chrome)
 
-    var displayName = (module.key + "_" + module.id).replace(/[^\w\d]|^\d/g, "_");
+    var displayName = module.filename.replace(/[^\w\d]|^\d/g, "_");
 
     try {
         module.factory = globalEval(
@@ -43,5 +43,5 @@ function compile(module) {
     // TODO: sniff browser?
     // module.factory = new Function("require", "exports", "module", module.text + "\n//*/"+sourceURLComment);
 
-    module.factory.displayName = displayName;
+    module.factory.displayName = module.filename;
 }
