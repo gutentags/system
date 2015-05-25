@@ -46,7 +46,7 @@ Stream([
 ]).forEach(function (name) {
     console.log('# ' + name);
     var location = Location.fromDirectory(Path.join(__dirname, name));
-    return System.loadSystem(location, {
+    return System.load(location, {
         modules: {
             test: { exports: test }
         }

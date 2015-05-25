@@ -96,7 +96,7 @@ NodeSystem.findSystemLocationAndModuleId = function findSystemLocationAndModuleI
     });
 };
 
-NodeSystem.loadSystem = function loadSystem(location, options) {
+NodeSystem.load = function loadSystem(location, options) {
     var self = this;
     return self.prototype.loadSystemDescription(location)
     .then(function (description) {
