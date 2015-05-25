@@ -44,12 +44,11 @@ function NodeSystem(location, description, options) {
 NodeSystem.prototype = Object.create(CommonSystem.prototype);
 NodeSystem.prototype.constructor = NodeSystem;
 
-NodeSystem.prototype.overlayNode = function overlayNode() {
+NodeSystem.load = function loadSystem(location, options) {
     var self = this;
-    node.forEach(function (id) {
-        self.modules[id] = {factory: function (require, exports, module) {
-            module.exports = require(id);
-        }};
+    return self.prototype.loadSystemDescription(location)
+    .then(function (description) {
+        return new self(location, description, options);
     });
 };
 
@@ -58,6 +57,15 @@ NodeSystem.prototype.read = function read(location, charset) {
     var deferred = Q.defer();
     var path = Location.toPath(location);
     return Q.ninvoke(FS, "readFile", path, charset || "utf8");
+};
+
+NodeSystem.prototype.overlayNode = function overlayNode() {
+    var self = this;
+    node.forEach(function (id) {
+        self.modules[id] = {factory: function (require, exports, module) {
+            module.exports = require(id);
+        }};
+    });
 };
 
 NodeSystem.findSystem = function findSystem(directory) {
@@ -88,18 +96,10 @@ NodeSystem.findSystemLocationAndModuleId = function findSystemLocationAndModuleI
     .then(function (packageDirectory) {
         var modulePath = Path.relative(packageDirectory, path);
         return {
-            location: self.directoryPathToLocation(packageDirectory),
-            id: modulePath
+            location: Location.fromDirectory(packageDirectory),
+            id: "./" + modulePath
         };
     }, function (error) {
         throw new Error("Can't find package " + JSON.stringify(path));
-    });
-};
-
-NodeSystem.load = function loadSystem(location, options) {
-    var self = this;
-    return self.prototype.loadSystemDescription(location)
-    .then(function (description) {
-        return new self(location, description, options);
     });
 };

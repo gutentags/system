@@ -46,6 +46,15 @@ function dirname(id) {
     return id.slice(0, lastSlash);
 }
 
+exports.basename = basename;
+function basename(id) {
+    var lastSlash = id.lastIndexOf("/");
+    if (lastSlash < 0) {
+        return id;
+    }
+    return id.slice(lastSlash + 1);
+}
+
 exports.resolve = resolve;
 function resolve(rel, abs) {
     abs = abs || '';
