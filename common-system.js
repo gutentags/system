@@ -35,14 +35,15 @@ function System(location, description, options) {
     self.root = options.root || self;
     // TODO options.optimize
     // TODO options.instrument
-    // TODO options.analyzers, options.compilers, options.translators (either
-    // from the build system or from given functions)
     self.systems[self.name] = self;
     self.systemLocations[self.name] = self.location;
     self.systemLoadedPromises[self.name] = Q(self);
 
     if (options.name != null && options.name !== description.name) {
-        console.warn("Package loaded by name " + JSON.stringify(options.name) + " bears name " + JSON.stringify(description.name));
+        console.warn(
+            "Package loaded by name " + JSON.stringify(options.name) +
+            " bears name " + JSON.stringify(description.name)
+        );
     }
 
     if (description.main != null) { self.addRedirect("", description.main); }
@@ -51,8 +52,15 @@ function System(location, description, options) {
     if (options.browser) { self.overlayBrowser(description); }
     if (options.node) { self.overlayNode(description); }
 
-    if (description.dependencies) { self.addDependencies(description.dependencies); }
-    if (self.root === self && description.devDependencies) { self.addDependencies(description.devDependencies); }
+    // Dependencies:
+    if (description.dependencies) {
+        self.addDependencies(description.dependencies);
+    }
+    if (self.root === self && description.devDependencies) {
+        self.addDependencies(description.devDependencies);
+    }
+
+    // Local per-extension overrides:
     if (description.redirects) { self.addRedirects(description.redirects); }
     if (description.translators) { self.addTranslators(description.translators); }
     if (description.analyzers) { self.addAnalyzers(description.analyzers); }
@@ -98,17 +106,11 @@ System.prototype.require = function require(rel, abs) {
         id = self.normalizeIdentifier(Identifier.resolve(rel, abs));
         return self.requireInternalModule(id, abs);
     }
-
 };
 
 System.prototype.requireInternalModule = function requireInternalModule(id, abs, module) {
     var self = this;
     module = module || self.lookupInternalModule(id);
-
-    //// handle redirects
-    //while (module.redirect != null) {
-    //    module = self.modules[module.redirect];
-    //}
 
     // check for load error
     if (module.error) {
@@ -171,12 +173,18 @@ System.prototype.getSystem = function getSystem(rel, abs) {
     var hasDependency = self.dependencies[rel];
     if (!hasDependency) {
         var via = abs ? " via " + JSON.stringify(abs) : "";
-        throw new Error("Can't get dependency " + JSON.stringify(rel) + " in package named " + JSON.stringify(self.name) + via);
+        throw new Error(
+            "Can't get dependency " + JSON.stringify(rel) +
+            " in package named " + JSON.stringify(self.name) + via
+        );
     }
     var dependency = self.systems[rel];
     if (!dependency) {
         var via = abs ? " via " + JSON.stringify(abs) : "";
-        throw new Error("Can't get dependency " + JSON.stringify(rel) + " in package named " + JSON.stringify(self.name) + via); // TODO
+        throw new Error(
+            "Can't get dependency " + JSON.stringify(rel) +
+            " in package named " + JSON.stringify(self.name) + via
+        );
     }
     return dependency;
 };
@@ -205,11 +213,13 @@ System.prototype.loadSystemDescription = function loadSystemDescription(location
         try {
             return JSON.parse(json);
         } catch (error) {
-            error.message = error.message + " in " + JSON.stringify(descriptionLocation);
+            error.message = error.message + " in " +
+                JSON.stringify(descriptionLocation);
             throw error;
         }
     }, function (error) {
-        error.message = "Can't load package " + JSON.stringify(name) + " at " + JSON.stringify(location) + " because " + error.message;
+        error.message = "Can't load package " + JSON.stringify(name) + " at " +
+            JSON.stringify(location) + " because " + error.message;
         throw error;
     })
 };
@@ -220,7 +230,10 @@ System.prototype.actuallyLoadSystem = function (name, abs) {
     var location = self.systemLocations[name];
     if (!location) {
         var via = abs ? " via " + JSON.stringify(abs) : "";
-        throw new Error("Can't load package " + JSON.stringify(name) + via + " because it is not a declared dependency");
+        throw new Error(
+            "Can't load package " + JSON.stringify(name) + via +
+            " because it is not a declared dependency"
+        );
     }
     var buildSystem;
     if (self.buildSystem) {
@@ -365,7 +378,7 @@ System.prototype.loadInternalModule = function loadInternalModule(rel, abs, memo
     }).then(function () {
         return self.analyze(module);
     }).then(function () {
-        return Q.all(module.dependencies.map(function (dependency) {
+        return Q.all(module.dependencies.map(function onDependency(dependency) {
             return self.load(dependency, module.id, memo);
         }));
     }).then(function () {
@@ -382,12 +395,16 @@ System.prototype.lookup = function lookup(rel, abs) {
         var head = Identifier.head(rel);
         var tail = Identifier.tail(rel);
         if (self.dependencies[head]) {
-            return self.getSystem(head, abs).lookup(tail);
+            return self.getSystem(head, abs).lookupInternalModule(tail, "");
         } else if (self.modules[head] && !tail) {
             return self.modules[head];
         } else {
             var via = abs ? " via " + JSON.stringify(abs) : "";
-            throw new Error("Can't lookup " + JSON.stringify(rel) + via);
+            throw new Error(
+                "Can't look up " + JSON.stringify(rel) + via +
+                " in " + JSON.stringify(self.location) +
+                " because there is no external module or dependency by that name"
+            );
         }
     }
     return self.lookupInternalModule(rel, abs);
@@ -467,10 +484,10 @@ System.prototype.makeTranslator = function makeTranslator(id) {
     return function translate(module) {
         return self.getBuildSystem()
         .import(id)
-        .then(function (translate) {
+        .then(function onTranslatorImported(translate) {
             module.extension = "js";
             return translate(module);
-        })
+        });
     }
 };
 
