@@ -132,7 +132,7 @@ System.prototype.requireInternalModule = function requireInternalModule(id, abs,
     if (typeof module.factory !== "function") {
         throw new Error(
             "Can't require module " + JSON.stringify(module.filename) +
-            " because no factory or exports were created by the module"
+            ". No exports. No exports factory."
         );
     }
 
@@ -181,7 +181,7 @@ System.prototype.getSystem = function getSystem(rel, abs) {
     return dependency;
 };
 
-System.prototype.loadSystem = function (name) {
+System.prototype.loadSystem = function (name, abs) {
     var self = this;
     //var hasDependency = self.dependencies[name];
     //if (!hasDependency) {
@@ -191,13 +191,12 @@ System.prototype.loadSystem = function (name) {
     //}
     var loadingSystem = self.systemLoadedPromises[name];
     if (!loadingSystem) {
-         loadingSystem = self.actuallyLoadSystem(name);
+         loadingSystem = self.actuallyLoadSystem(name, abs);
          self.systemLoadedPromises[name] = loadingSystem;
     }
     return loadingSystem;
 };
 
-// TODO consider harnessing loadResource
 System.prototype.loadSystemDescription = function loadSystemDescription(location) {
     var self = this;
     var descriptionLocation = URL.resolve(location, "package.json")
@@ -209,16 +208,23 @@ System.prototype.loadSystemDescription = function loadSystemDescription(location
             error.message = error.message + " in " + JSON.stringify(descriptionLocation);
             throw error;
         }
+    }, function (error) {
+        error.message = "Can't load package " + JSON.stringify(name) + " at " + JSON.stringify(location) + " because " + error.message;
+        throw error;
     })
 };
 
-System.prototype.actuallyLoadSystem = function (name) {
+System.prototype.actuallyLoadSystem = function (name, abs) {
     var self = this;
     var System = self.constructor;
     var location = self.systemLocations[name];
+    if (!location) {
+        var via = abs ? " via " + JSON.stringify(abs) : "";
+        throw new Error("Can't load package " + JSON.stringify(name) + via + " because it is not a declared dependency");
+    }
     var buildSystem;
     if (self.buildSystem) {
-        buildSystem = self.buildSystem.actuallyLoadSystem(name);
+        buildSystem = self.buildSystem.actuallyLoadSystem(name, abs);
     }
     return Q.all([
         self.loadSystemDescription(location),
@@ -265,7 +271,7 @@ System.prototype.locateResource = function locateResource(rel, abs) {
     if (Identifier.isAbsolute(rel)) {
         var head = Identifier.head(rel);
         var tail = Identifier.tail(rel);
-        return self.loadSystem(head)
+        return self.loadSystem(head, abs)
         .then(function onSystemLoaded(subsystem) {
             return subsystem.getInternalResource(tail);
         });
@@ -310,31 +316,39 @@ System.prototype.normalizeIdentifier = function (id) {
 };
 
 // Loads a module and its transitive dependencies.
-System.prototype.load = function load(rel, abs) {
+System.prototype.load = function load(rel, abs, memo) {
     var self = this;
     if (Identifier.isAbsolute(rel)) {
         var head = Identifier.head(rel);
         var tail = Identifier.tail(rel);
         if (self.dependencies[head]) {
-            return self.loadSystem(head).invoke("loadInternalModule", tail);
+            return self.loadSystem(head, abs).invoke("loadInternalModule", tail, "", memo);
         } else {
+            // XXX no clear idea what to do in this load case.
+            // Should never reject, but should cause require to produce an
+            // error.
             return Q();
         }
     } else {
-        return self.loadInternalModule(rel, abs);
+        return self.loadInternalModule(rel, abs, memo);
     }
 };
 
-System.prototype.loadInternalModule = function loadInternalModule(rel, abs) {
+System.prototype.loadInternalModule = function loadInternalModule(rel, abs, memo) {
     var self = this;
     var id = self.normalizeIdentifier(rel);
     var module = self.lookupInternalModule(id, abs);
-    if (module.loadedPromise) {
-        // Returning a resolved promise allows us to continue if there is a
-        // dependency cycle.
-        // TODO race condition with multiple parallel loads. The loadedPromise
-        // map should be created for each entry into the load() function.
+
+    // Break the cycle of violence
+    memo = memo || {};
+    if (memo[module.key]) {
         return Q();
+    }
+    memo[module.key] = true;
+
+    // Return a memoized load
+    if (module.loadedPromise) {
+        return module.loadedPromise;
     }
     module.loadedPromise = Q.try(function () {
         if (module.factory == null && module.exports == null) {
@@ -352,7 +366,7 @@ System.prototype.loadInternalModule = function loadInternalModule(rel, abs) {
         return self.analyze(module);
     }).then(function () {
         return Q.all(module.dependencies.map(function (dependency) {
-            return self.load(dependency, module.id);
+            return self.load(dependency, module.id, memo);
         }));
     }).then(function () {
         return self.compile(module);
@@ -497,7 +511,7 @@ System.prototype.compile = function (module) {
 };
 
 System.prototype.compileJavaScript = function compileJavaScript(module) {
-    compile(module);
+    return compile(module);
 };
 
 System.prototype.compileJson = function compileJson(module) {
