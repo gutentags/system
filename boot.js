@@ -3033,7 +3033,6 @@ System.prototype.addRedirects = function addRedirects(redirects) {
 System.prototype.addRedirect = function addRedirect(source, target) {
     var self = this;
     source = self.normalizeIdentifier(Identifier.resolve(source));
-    target = self.normalizeIdentifier(Identifier.resolve(target, source));
     self.modules[self.name + "/" + source] = {redirect: target};
 };
 
