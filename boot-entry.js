@@ -22,6 +22,7 @@ function boot(params) {
     return System.load(systemLocation, {
         browser: true
     }).then(function onSystemLoaded(system) {
+        window.system = system;
         return system.import(rel, abs);
     });
 }
