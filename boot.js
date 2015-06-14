@@ -3170,7 +3170,7 @@ function compile(module) {
              "(require, exports, module, __filename, __dirname) {" +
             module.text +
             "//*/\n})\n//@ sourceURL=" +
-            module.system.location + '/' + module.id
+            module.system.location + module.id
         );
     } catch (exception) {
         exception.message = exception.message + " in " + module.filename;
