@@ -287,52 +287,6 @@ System.prototype.getBuildSystem = function getBuildSystem() {
     return self.buildSystem || self;
 };
 
-// Resource:
-
-System.prototype.getResource = function getResource(rel, abs) {
-    var self = this;
-    if (Identifier.isAbsolute(rel)) {
-        var head = Identifier.head(rel);
-        var tail = Identifier.tail(rel);
-        return self.getSystem(head, abs).getInternalResource(tail);
-    } else {
-        return self.getInternalResource(Identifier.resolve(rel, abs));
-    }
-};
-
-System.prototype.locateResource = function locateResource(rel, abs) {
-    var self = this;
-    if (Identifier.isAbsolute(rel)) {
-        var head = Identifier.head(rel);
-        var tail = Identifier.tail(rel);
-        return self.loadSystem(head, abs)
-        .then(function onSystemLoaded(subsystem) {
-            return subsystem.getInternalResource(tail);
-        });
-    } else {
-        return Q(self.getInternalResource(Identifier.resolve(rel, abs)));
-    }
-};
-
-System.prototype.getInternalResource = function getInternalResource(id) {
-    var self = this;
-    // TODO redirects
-    var filename = self.name + "/" + id;
-    var key = filename.toLowerCase();
-    var resource = self.resources[key];
-    if (!resource) {
-        resource = new Resource();
-        resource.id = id;
-        resource.filename = filename;
-        resource.dirname = Identifier.dirname(filename);
-        resource.key = key;
-        resource.location = URL.resolve(self.location, id);
-        resource.system = self;
-        self.resources[key] = resource;
-    }
-    return resource;
-};
-
 // Module:
 
 System.prototype.normalizeIdentifier = function (id) {
@@ -626,6 +580,52 @@ System.prototype.makeCompiler = function makeCompiler(id) {
             return compile(module);
         });
     }
+};
+
+// Resource:
+
+System.prototype.getResource = function getResource(rel, abs) {
+    var self = this;
+    if (Identifier.isAbsolute(rel)) {
+        var head = Identifier.head(rel);
+        var tail = Identifier.tail(rel);
+        return self.getSystem(head, abs).getInternalResource(tail);
+    } else {
+        return self.getInternalResource(Identifier.resolve(rel, abs));
+    }
+};
+
+System.prototype.locateResource = function locateResource(rel, abs) {
+    var self = this;
+    if (Identifier.isAbsolute(rel)) {
+        var head = Identifier.head(rel);
+        var tail = Identifier.tail(rel);
+        return self.loadSystem(head, abs)
+        .then(function onSystemLoaded(subsystem) {
+            return subsystem.getInternalResource(tail);
+        });
+    } else {
+        return Q(self.getInternalResource(Identifier.resolve(rel, abs)));
+    }
+};
+
+System.prototype.getInternalResource = function getInternalResource(id) {
+    var self = this;
+    // TODO redirects
+    var filename = self.name + "/" + id;
+    var key = filename.toLowerCase();
+    var resource = self.resources[key];
+    if (!resource) {
+        resource = new Resource();
+        resource.id = id;
+        resource.filename = filename;
+        resource.dirname = Identifier.dirname(filename);
+        resource.key = key;
+        resource.location = URL.resolve(self.location, id);
+        resource.system = self;
+        self.resources[key] = resource;
+    }
+    return resource;
 };
 
 // Dependencies:
