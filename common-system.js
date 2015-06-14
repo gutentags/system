@@ -115,7 +115,7 @@ System.prototype.require = function require(rel, abs) {
             return self.requireInternalModule(rel, abs, self.modules[rel]);
         } else {
             var via = abs ? " via " + JSON.stringify(abs) : "";
-            throw new Error("Can't require " + JSON.stringify(rel) + via);
+            throw new Error("Can't require " + JSON.stringify(rel) + via + " in " + JSON.stringify(self.name));
         }
     } else {
         return self.requireInternalModule(rel, abs);
@@ -506,6 +506,12 @@ System.prototype.makeTranslator = function makeTranslator(id) {
         return self.getBuildSystem()
         .import(id)
         .then(function onTranslatorImported(translate) {
+            if (typeof translate !== "function") {
+                throw new Error(
+                    "Can't translate " + JSON.stringify(module.id) +
+                    " because " + JSON.stringify(id) + " did not export a function"
+                );
+            }
             module.extension = "js";
             return translate(module);
         });

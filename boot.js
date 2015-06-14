@@ -2559,7 +2559,7 @@ System.prototype.require = function require(rel, abs) {
             return self.requireInternalModule(rel, abs, self.modules[rel]);
         } else {
             var via = abs ? " via " + JSON.stringify(abs) : "";
-            throw new Error("Can't require " + JSON.stringify(rel) + via);
+            throw new Error("Can't require " + JSON.stringify(rel) + via + " in " + JSON.stringify(self.name));
         }
     } else {
         return self.requireInternalModule(rel, abs);
@@ -2729,52 +2729,6 @@ System.prototype.actuallyLoadSystem = function (name, abs) {
 System.prototype.getBuildSystem = function getBuildSystem() {
     var self = this;
     return self.buildSystem || self;
-};
-
-// Resource:
-
-System.prototype.getResource = function getResource(rel, abs) {
-    var self = this;
-    if (Identifier.isAbsolute(rel)) {
-        var head = Identifier.head(rel);
-        var tail = Identifier.tail(rel);
-        return self.getSystem(head, abs).getInternalResource(tail);
-    } else {
-        return self.getInternalResource(Identifier.resolve(rel, abs));
-    }
-};
-
-System.prototype.locateResource = function locateResource(rel, abs) {
-    var self = this;
-    if (Identifier.isAbsolute(rel)) {
-        var head = Identifier.head(rel);
-        var tail = Identifier.tail(rel);
-        return self.loadSystem(head, abs)
-        .then(function onSystemLoaded(subsystem) {
-            return subsystem.getInternalResource(tail);
-        });
-    } else {
-        return Q(self.getInternalResource(Identifier.resolve(rel, abs)));
-    }
-};
-
-System.prototype.getInternalResource = function getInternalResource(id) {
-    var self = this;
-    // TODO redirects
-    var filename = self.name + "/" + id;
-    var key = filename.toLowerCase();
-    var resource = self.resources[key];
-    if (!resource) {
-        resource = new Resource();
-        resource.id = id;
-        resource.filename = filename;
-        resource.dirname = Identifier.dirname(filename);
-        resource.key = key;
-        resource.location = URL.resolve(self.location, id);
-        resource.system = self;
-        self.resources[key] = resource;
-    }
-    return resource;
 };
 
 // Module:
@@ -2996,6 +2950,12 @@ System.prototype.makeTranslator = function makeTranslator(id) {
         return self.getBuildSystem()
         .import(id)
         .then(function onTranslatorImported(translate) {
+            if (typeof translate !== "function") {
+                throw new Error(
+                    "Can't translate " + JSON.stringify(module.id) +
+                    " because " + JSON.stringify(id) + " did not export a function"
+                );
+            }
             module.extension = "js";
             return translate(module);
         });
@@ -3070,6 +3030,52 @@ System.prototype.makeCompiler = function makeCompiler(id) {
             return compile(module);
         });
     }
+};
+
+// Resource:
+
+System.prototype.getResource = function getResource(rel, abs) {
+    var self = this;
+    if (Identifier.isAbsolute(rel)) {
+        var head = Identifier.head(rel);
+        var tail = Identifier.tail(rel);
+        return self.getSystem(head, abs).getInternalResource(tail);
+    } else {
+        return self.getInternalResource(Identifier.resolve(rel, abs));
+    }
+};
+
+System.prototype.locateResource = function locateResource(rel, abs) {
+    var self = this;
+    if (Identifier.isAbsolute(rel)) {
+        var head = Identifier.head(rel);
+        var tail = Identifier.tail(rel);
+        return self.loadSystem(head, abs)
+        .then(function onSystemLoaded(subsystem) {
+            return subsystem.getInternalResource(tail);
+        });
+    } else {
+        return Q(self.getInternalResource(Identifier.resolve(rel, abs)));
+    }
+};
+
+System.prototype.getInternalResource = function getInternalResource(id) {
+    var self = this;
+    // TODO redirects
+    var filename = self.name + "/" + id;
+    var key = filename.toLowerCase();
+    var resource = self.resources[key];
+    if (!resource) {
+        resource = new Resource();
+        resource.id = id;
+        resource.filename = filename;
+        resource.dirname = Identifier.dirname(filename);
+        resource.key = key;
+        resource.location = URL.resolve(self.location, id);
+        resource.system = self;
+        self.resources[key] = resource;
+    }
+    return resource;
 };
 
 // Dependencies:
