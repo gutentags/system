@@ -29,6 +29,8 @@ function System(location, description, options) {
     self.analyzers = {js: self.analyzeJavaScript};
     self.compilers = {js: self.compileJavaScript, json: self.compileJson};
     self.translators = {};
+    self.internalRedirects = {};
+    self.externalRedirects = {};
     self.node = !!options.node;
     self.browser = !!options.browser;
     self.parent = options.parent;
@@ -46,7 +48,12 @@ function System(location, description, options) {
         );
     }
 
-    if (description.main != null) { self.addRedirect("", description.main); }
+    // The main property of the description can only create an internal
+    // redirect, as such it normalizes absolute identifiers to relative.
+    // All other redirects, whether from internal or external identifiers, can
+    // redirect to either internal or external identifiers.
+    self.main = description.main || "index.js";
+    self.internalRedirects[".js"] = "./" + Identifier.resolve(self.main, "");
 
     // Overlays:
     if (options.browser) { self.overlayBrowser(description); }
@@ -90,8 +97,16 @@ System.prototype.import = function importModule(rel, abs) {
 System.prototype.require = function require(rel, abs) {
     var self = this;
 
-    var id, module;
+    // Apart from resolving relative identifiers, this also normalizes absolute
+    // identifiers.
+    var res = Identifier.resolve(rel, abs);
     if (Identifier.isAbsolute(rel)) {
+        if (self.externalRedirects[res] === false) {
+            return {};
+        }
+        if (self.externalRedirects[res]) {
+            return self.require(self.externalRedirects[res], res);
+        }
         var head = Identifier.head(rel);
         var tail = Identifier.tail(rel);
         if (self.dependencies[head]) {
@@ -103,13 +118,19 @@ System.prototype.require = function require(rel, abs) {
             throw new Error("Can't require " + JSON.stringify(rel) + via);
         }
     } else {
-        id = self.normalizeIdentifier(Identifier.resolve(rel, abs));
-        return self.requireInternalModule(id, abs);
+        return self.requireInternalModule(rel, abs);
     }
 };
 
-System.prototype.requireInternalModule = function requireInternalModule(id, abs, module) {
+System.prototype.requireInternalModule = function requireInternalModule(rel, abs, module) {
     var self = this;
+
+    var res = Identifier.resolve(rel, abs);
+    var id = self.normalizeIdentifier(res);
+    if (self.internalRedirects[id]) {
+        return self.require(self.internalRedirects[id], id);
+    }
+
     module = module || self.lookupInternalModule(id);
 
     // check for load error
@@ -331,7 +352,11 @@ System.prototype.normalizeIdentifier = function (id) {
 // Loads a module and its transitive dependencies.
 System.prototype.load = function load(rel, abs, memo) {
     var self = this;
+    var res = Identifier.resolve(rel, abs);
     if (Identifier.isAbsolute(rel)) {
+        if (self.externalRedirects[res]) {
+            return self.load(self.externalRedirects[res], res, memo);
+        }
         var head = Identifier.head(rel);
         var tail = Identifier.tail(rel);
         if (self.dependencies[head]) {
@@ -349,7 +374,18 @@ System.prototype.load = function load(rel, abs, memo) {
 
 System.prototype.loadInternalModule = function loadInternalModule(rel, abs, memo) {
     var self = this;
-    var id = self.normalizeIdentifier(rel);
+
+    var res = Identifier.resolve(rel, abs);
+    var id = self.normalizeIdentifier(res);
+    if (self.internalRedirects[id]) {
+        return self.load(self.internalRedirects[id], "", memo);
+    }
+
+    // Extension must be captured before normalization since it is used to
+    // determine whether to attempt to fallback to index.js for identifiers
+    // that might refer to directories.
+    var extension = Identifier.extension(res);
+
     var module = self.lookupInternalModule(id, abs);
 
     // Break the cycle of violence
@@ -368,9 +404,32 @@ System.prototype.loadInternalModule = function loadInternalModule(rel, abs, memo
             return self.read(module.location, "utf-8")
             .then(function (text) {
                 module.text = text;
-            });
+                return self.finishLoadingModule(module, memo);
+            }, fallback);
         }
-    }).then(function () {
+    });
+
+    function fallback(error) {
+        var redirect = Identifier.resolve("./index.js", res);
+        module.redirect = redirect;
+        if (!error || error.notFound && extension === "") {
+            return self.loadInternalModule(redirect, abs, memo)
+            .catch(function (fallbackError) {
+                module.redirect = null;
+                // Prefer the original error
+                module.error = error || fallbackError;
+            });
+        } else {
+            module.error = error;
+        }
+    }
+
+    return module.loadedPromise;
+};
+
+System.prototype.finishLoadingModule = function finishLoadingModule(module, memo) {
+    var self = this;
+    return Q.try(function () {
         return self.translate(module);
         // TODO optimize
         // TODO instrument
@@ -383,17 +442,20 @@ System.prototype.loadInternalModule = function loadInternalModule(rel, abs, memo
         }));
     }).then(function () {
         return self.compile(module);
-    }, function (error) {
+    }).catch(function (error) {
         module.error = error;
     });
-    return module.loadedPromise;
 };
 
 System.prototype.lookup = function lookup(rel, abs) {
     var self = this;
+    var res = Identifier.resolve(rel, abs);
     if (Identifier.isAbsolute(rel)) {
-        var head = Identifier.head(rel);
-        var tail = Identifier.tail(rel);
+        if (self.externalRedirects[res]) {
+            return self.lookup(self.externalRedirects[res], res);
+        }
+        var head = Identifier.head(res);
+        var tail = Identifier.tail(res);
         if (self.dependencies[head]) {
             return self.getSystem(head, abs).lookupInternalModule(tail, "");
         } else if (self.modules[head] && !tail) {
@@ -406,15 +468,20 @@ System.prototype.lookup = function lookup(rel, abs) {
                 " because there is no external module or dependency by that name"
             );
         }
+    } else {
+        return self.lookupInternalModule(rel, abs);
     }
-    return self.lookupInternalModule(rel, abs);
 };
 
 System.prototype.lookupInternalModule = function lookupInternalModule(rel, abs) {
     var self = this;
 
-    var normal = Identifier.resolve(rel, abs);
-    var id = self.normalizeIdentifier(normal);
+    var res = Identifier.resolve(rel, abs);
+    var id = self.normalizeIdentifier(res);
+
+    if (self.internalRedirects[id]) {
+        return self.lookup(self.internalRedirects[id], res);
+    }
 
     var filename = self.name + '/' + id;
     // This module system is case-insensitive, but mandates that a module must
@@ -590,8 +657,12 @@ System.prototype.addRedirects = function addRedirects(redirects) {
 
 System.prototype.addRedirect = function addRedirect(source, target) {
     var self = this;
-    source = self.normalizeIdentifier(Identifier.resolve(source));
-    self.modules[self.name + "/" + source] = {redirect: target};
+    if (Identifier.isAbsolute(source)) {
+        self.externalRedirects[source] = target;
+    } else {
+        source = self.normalizeIdentifier(Identifier.resolve(source));
+        self.internalRedirects[source] = target;
+    }
 };
 
 // Etc:
