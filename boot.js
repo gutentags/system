@@ -2346,8 +2346,9 @@ BrowserSystem.prototype.read = function read(location, charset, contentType) {
 
     function onerror() {
         var error = new Error("Can't XHR " + JSON.stringify(location));
-        if (request.statusCode === 404 || request.statusCode === 0) {
+        if (request.status === 404 || request.status === 0) {
             error.code = "ENOENT";
+            error.notFound = true;
         }
         response.reject(error);
     }

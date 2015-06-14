@@ -50,7 +50,13 @@ NodeSystem.prototype.read = function read(location, charset) {
     var self = this;
     var deferred = Q.defer();
     var path = Location.toPath(location);
-    return Q.ninvoke(FS, "readFile", path, charset || "utf8");
+    return Q.ninvoke(FS, "readFile", path, charset || "utf8")
+    .catch(function (error) {
+        if (error.code === "ENOENT") {
+            error.notFound = true;
+        }
+        throw error;
+    });
 };
 
 NodeSystem.prototype.overlayNode = function overlayNode() {
