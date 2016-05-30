@@ -3155,7 +3155,7 @@ function compile(module) {
     // Here we use a couple tricks to make debugging better in various browsers:
     // TODO: determine if these are all necessary / the best options
     // 1. name the function with something inteligible since some debuggers display the first part of each eval (Firebug)
-    // 2. append the "//@ sourceURL=filename" hack (Safari, Chrome, Firebug)
+    // 2. append the "//# sourceURL=filename" hack (Safari, Chrome, Firebug)
     //  * http://pmuellr.blogspot.com/2009/06/debugger-friendly.html
     //  * http://blog.getfirebug.com/2009/08/11/give-your-eval-a-name-with-sourceurl/
     //      TODO: investigate why this isn't working in Firebug.
@@ -3169,7 +3169,7 @@ function compile(module) {
             displayName +
              "(require, exports, module, __filename, __dirname) {" +
             module.text +
-            "//*/\n})\n//@ sourceURL=" +
+            "//*/\n})\n//# sourceURL=" +
             module.system.location + module.id
         );
     } catch (exception) {
