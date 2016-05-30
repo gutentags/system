@@ -21,6 +21,9 @@ function bundleSystemId(system, id) {
         for (var nameIndex = 0; nameIndex < names.length; nameIndex++) {
             var name = names[nameIndex];
             var module = system.modules[name];
+            if (module.error) {
+                throw module.error;
+            }
             if (module.text != null && !module.bundled) {
                 module.index = index++;
                 module.bundled = true;
