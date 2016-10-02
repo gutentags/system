@@ -1,3 +1,4 @@
+// @generated
 global = this;
 (function (modules) {
 
@@ -2513,6 +2514,7 @@ function System(location, description, options) {
 
     // Local per-extension overrides:
     if (description.redirects) { self.addRedirects(description.redirects); }
+    if (description.extensions) { self.addExtensions(description.extensions); }
     if (description.translators) { self.addTranslators(description.translators); }
     if (description.analyzers) { self.addAnalyzers(description.analyzers); }
     if (description.compilers) { self.addCompilers(description.compilers); }
@@ -2738,6 +2740,7 @@ System.prototype.normalizeIdentifier = function (id) {
     var extension = Identifier.extension(id);
     if (
         !has.call(self.translators, extension) &&
+        !has.call(self.analyzers, extension) &&
         !has.call(self.compilers, extension) &&
         extension !== "js" &&
         extension !== "json"
@@ -2747,13 +2750,78 @@ System.prototype.normalizeIdentifier = function (id) {
     return id;
 };
 
+System.prototype.load = function load(rel, abs) {
+    var self = this;
+    return self.deepLoad(rel, abs)
+    .then(function () {
+        return self.deepCompile(rel, abs, {});
+    });
+};
+
+System.prototype.deepCompile = function deepCompile(rel, abs, memo) {
+    var self = this;
+
+    var res = Identifier.resolve(rel, abs);
+    if (Identifier.isAbsolute(rel)) {
+        if (self.externalRedirects[res]) {
+            return self.deepCompile(self.externalRedirects[res], res, memo);
+        }
+        var head = Identifier.head(rel);
+        var tail = Identifier.tail(rel);
+        if (self.dependencies[head]) {
+            var system = self.getSystem(head, abs);
+            return system.compileInternalModule(tail, "", memo);
+        } else {
+            // XXX no clear idea what to do in this load case.
+            // Should never reject, but should cause require to produce an
+            // error.
+            return Q();
+        }
+    } else {
+        return self.compileInternalModule(rel, abs, memo);
+    }
+};
+
+System.prototype.compileInternalModule = function compileInternalModule(rel, abs, memo) {
+    var self = this;
+
+    var res = Identifier.resolve(rel, abs);
+    var id = self.normalizeIdentifier(res);
+    if (self.internalRedirects[id]) {
+        return self.deepCompile(self.internalRedirects[id], "", memo);
+    }
+    var module = self.lookupInternalModule(id, abs);
+
+    // Break the cycle of violence
+    if (memo[module.key]) {
+        return Q();
+    }
+    memo[module.key] = true;
+
+    if (module.compiled) {
+        return Q();
+    }
+    module.compiled = true;
+    return Q.try(function () {
+        return Q.all(module.dependencies.map(function (dependency) {
+            return self.deepCompile(dependency, module.id, memo);
+        }));
+    }).then(function () {
+        return self.translate(module);
+    }).then(function () {
+        return self.compile(module);
+    }).catch(function (error) {
+        module.error = error;
+    });
+};
+
 // Loads a module and its transitive dependencies.
-System.prototype.load = function load(rel, abs, memo) {
+System.prototype.deepLoad = function deepLoad(rel, abs, memo) {
     var self = this;
     var res = Identifier.resolve(rel, abs);
     if (Identifier.isAbsolute(rel)) {
         if (self.externalRedirects[res]) {
-            return self.load(self.externalRedirects[res], res, memo);
+            return self.deepLoad(self.externalRedirects[res], res, memo);
         }
         var head = Identifier.head(rel);
         var tail = Identifier.tail(rel);
@@ -2776,7 +2844,7 @@ System.prototype.loadInternalModule = function loadInternalModule(rel, abs, memo
     var res = Identifier.resolve(rel, abs);
     var id = self.normalizeIdentifier(res);
     if (self.internalRedirects[id]) {
-        return self.load(self.internalRedirects[id], "", memo);
+        return self.deepLoad(self.internalRedirects[id], "", memo);
     }
 
     // Extension must be captured before normalization since it is used to
@@ -2828,20 +2896,11 @@ System.prototype.loadInternalModule = function loadInternalModule(rel, abs, memo
 System.prototype.finishLoadingModule = function finishLoadingModule(module, memo) {
     var self = this;
     return Q.try(function () {
-        return self.translate(module);
-        // TODO optimize
-        // TODO instrument
-        // TODO facilitate source maps and source map transforms
-    }).then(function () {
         return self.analyze(module);
     }).then(function () {
         return Q.all(module.dependencies.map(function onDependency(dependency) {
-            return self.load(dependency, module.id, memo);
+            return self.deepLoad(dependency, module.id, memo);
         }));
-    }).then(function () {
-        return self.compile(module);
-    }).catch(function (error) {
-        module.error = error;
     });
 };
 
@@ -2916,6 +2975,30 @@ System.prototype.lookupInternalModule = function lookupInternalModule(rel, abs) 
     return module;
 };
 
+System.prototype.addExtensions = function (map) {
+    var extensions = Object.keys(map);
+    for (var index = 0; index < extensions.length; index++) {
+        var extension = extensions[index];
+        var id = map[extension];
+        this.analyzers[extension] = this.makeLoadStep(id, 'analyze');
+        this.translators[extension] = this.makeLoadStep(id, 'translate');
+        this.compilers[extension] = this.makeLoadStep(id, 'compile');
+    }
+};
+
+System.prototype.makeLoadStep = function makeLoadStep(id, name) {
+    var self = this;
+    return function moduleLoaderStep(module) {
+        return self.getBuildSystem()
+        .import(id)
+        .then(function (exports) {
+            if (exports[name]) {
+                return exports[name](module);
+            }
+        });
+    };
+};
+
 // Translate:
 
 System.prototype.translate = function translate(module) {
@@ -2959,7 +3042,7 @@ System.prototype.makeTranslator = function makeTranslator(id) {
             module.extension = "js";
             return translate(module);
         });
-    }
+    };
 };
 
 // Analyze:
@@ -2980,8 +3063,37 @@ System.prototype.analyzeJavaScript = function analyzeJavaScript(module) {
     module.dependencies.push.apply(module.dependencies, parseDependencies(module.text));
 };
 
-// TODO addAnalyzers
-// TODO addAnalyzer
+System.prototype.addAnalyzers = function addAnalyzers(analyzers) {
+    var self = this;
+    var extensions = Object.keys(analyzers);
+    for (var index = 0; index < extensions.length; index++) {
+        var extension = extensions[index];
+        var id = analyzers[extension];
+        self.addAnalyzer(extension, id);
+    }
+};
+
+System.prototype.addAnalyzer = function (extension, id) {
+    var self = this;
+    self.analyzers[extension] = self.makeAnalyzer(id);
+};
+
+System.prototype.makeAnalyzer = function makeAnalyzer(id) {
+    var self = this;
+    return function analyze(module) {
+        return self.getBuildSystem()
+        .import(id)
+        .then(function onAnalyzerImported(analyze) {
+            if (typeof analyze !== "function") {
+                throw new Error(
+                    "Can't analyze " + JSON.stringify(module.id) +
+                    " because " + JSON.stringify(id) + " did not export a function"
+                );
+            }
+            return analyze(module);
+        });
+    };
+};
 
 // Compile:
 
@@ -3029,7 +3141,7 @@ System.prototype.makeCompiler = function makeCompiler(id) {
         .then(function (compile) {
             return compile(module);
         });
-    }
+    };
 };
 
 // Resource:

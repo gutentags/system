@@ -54,6 +54,7 @@ function bundleSystemId(system, id) {
         var main = system.lookup(id);
 
         return (
+            '// @generated\n' +
             boilerplate +
             "(" + payload + ")" +
             "(" + JSON.stringify(main.filename) + ")"
