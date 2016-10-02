@@ -1,10 +1,9 @@
+/*eslint-env browser*/
 "use strict";
 
 var System = require("./system");
 var URL = require("./url");
-var Q = require("q");
 var getParams = require("./script-params");
-var Identifier = require("./identifier");
 
 module.exports = boot;
 function boot(params) {

@@ -1,6 +1,5 @@
+/*eslint-env browser*/
 "use strict";
-
-var URL = require("./url");
 
 module.exports = getParams;
 function getParams(scriptName) {
@@ -38,7 +37,7 @@ function getParams(scriptName) {
 
                 for (j = 0; j < script.attributes.length; j++) {
                     attr = script.attributes[j];
-                    match = attr.name.match(/^data-(.*)$/);
+                    match = attr.name.match(dataRe);
                     if (match) {
                         params[match[1].replace(letterAfterDash, upperCaseChar)] = attr.value;
                     }

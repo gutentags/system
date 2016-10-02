@@ -1,3 +1,4 @@
+/*eslint-env browser*/
 "use strict";
 
 var base = window.location.toString();

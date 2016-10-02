@@ -1,4 +1,5 @@
 // @generated
+/*eslint semi:[0], no-native-reassign:[0]*/
 global = this;
 (function (modules) {
 
@@ -2272,18 +2273,17 @@ Promise.prototype.nmcall = deprecate(Promise.prototype.ninvoke, "nmcall", "q/nod
 var qEndingLine = captureLine();
 
 
-}],["boot-entry.js","system","boot-entry.js",{"./system":8,"./url":9,"q":6,"./script-params":16,"./identifier":12},function (require, exports, module, __filename, __dirname){
+}],["boot-entry.js","system","boot-entry.js",{"./system":8,"./url":9,"./script-params":16},function (require, exports, module, __filename, __dirname){
 
 // system/boot-entry.js
 // --------------------
 
+/*eslint-env browser*/
 "use strict";
 
 var System = require("./system");
 var URL = require("./url");
-var Q = require("q");
 var getParams = require("./script-params");
-var Identifier = require("./identifier");
 
 module.exports = boot;
 function boot(params) {
@@ -2315,6 +2315,7 @@ if (require.main === module) {
 // system/browser-system.js
 // ------------------------
 
+/*eslint-env browser*/
 "use strict";
 
 var Q = require("q");
@@ -2386,6 +2387,7 @@ function xhrSuccess(req) {
 // system/browser-url.js
 // ---------------------
 
+/*eslint-env browser*/
 // This is the browser implementation for "url",
 // redirected from "url" within this package by the
 // loader because of the "browser" redirects in package.json.
@@ -2443,6 +2445,8 @@ exports.resolve = function resolve(base, relative) {
 // system/common-system.js
 // -----------------------
 
+/*eslint no-console:[0]*/
+/*global console*/
 "use strict";
 
 var Q = require("q");
@@ -2460,7 +2464,7 @@ function System(location, description, options) {
     var self = this;
     options = options || {};
     description = description || {};
-    self.name = description.name || '';
+    self.name = description.name || "";
     self.location = location;
     self.description = description;
     self.dependencies = {};
@@ -2522,7 +2526,7 @@ function System(location, description, options) {
 
 System.load = function loadSystem(location, options) {
     var self = this;
-    return self.prototype.loadSystemDescription(location)
+    return self.prototype.loadSystemDescription(location, "<anonymous>")
     .then(function (description) {
         return new self(location, description, options);
     });
@@ -2626,7 +2630,7 @@ System.prototype.makeRequire = function makeRequire(abs, main) {
     var self = this;
     function require(rel) {
         return self.require(rel, abs);
-    };
+    }
     require.main = main;
     return require;
 };
@@ -2636,21 +2640,21 @@ System.prototype.makeRequire = function makeRequire(abs, main) {
 // Should only be called if the system is known to have already been loaded by
 // system.loadSystem.
 System.prototype.getSystem = function getSystem(rel, abs) {
-    var self = this;
-    var hasDependency = self.dependencies[rel];
+    var via;
+    var hasDependency = this.dependencies[rel];
     if (!hasDependency) {
-        var via = abs ? " via " + JSON.stringify(abs) : "";
+        via = abs ? " via " + JSON.stringify(abs) : "";
         throw new Error(
             "Can't get dependency " + JSON.stringify(rel) +
-            " in package named " + JSON.stringify(self.name) + via
+            " in package named " + JSON.stringify(this.name) + via
         );
     }
-    var dependency = self.systems[rel];
+    var dependency = this.systems[rel];
     if (!dependency) {
-        var via = abs ? " via " + JSON.stringify(abs) : "";
+        via = abs ? " via " + JSON.stringify(abs) : "";
         throw new Error(
             "Can't get dependency " + JSON.stringify(rel) +
-            " in package named " + JSON.stringify(self.name) + via
+            " in package named " + JSON.stringify(this.name) + via
         );
     }
     return dependency;
@@ -2666,15 +2670,15 @@ System.prototype.loadSystem = function (name, abs) {
     //}
     var loadingSystem = self.systemLoadedPromises[name];
     if (!loadingSystem) {
-         loadingSystem = self.actuallyLoadSystem(name, abs);
-         self.systemLoadedPromises[name] = loadingSystem;
+        loadingSystem = self.actuallyLoadSystem(name, abs);
+        self.systemLoadedPromises[name] = loadingSystem;
     }
     return loadingSystem;
 };
 
-System.prototype.loadSystemDescription = function loadSystemDescription(location) {
+System.prototype.loadSystemDescription = function loadSystemDescription(location, name) {
     var self = this;
-    var descriptionLocation = URL.resolve(location, "package.json")
+    var descriptionLocation = URL.resolve(location, "package.json");
     return self.read(descriptionLocation, "utf-8", "application/json")
     .then(function (json) {
         try {
@@ -2688,7 +2692,7 @@ System.prototype.loadSystemDescription = function loadSystemDescription(location
         error.message = "Can't load package " + JSON.stringify(name) + " at " +
             JSON.stringify(location) + " because " + error.message;
         throw error;
-    })
+    });
 };
 
 System.prototype.actuallyLoadSystem = function (name, abs) {
@@ -2707,7 +2711,7 @@ System.prototype.actuallyLoadSystem = function (name, abs) {
         buildSystem = self.buildSystem.actuallyLoadSystem(name, abs);
     }
     return Q.all([
-        self.loadSystemDescription(location),
+        self.loadSystemDescription(location, name),
         buildSystem
     ]).spread(function onDescriptionAndBuildSystem(description, buildSystem) {
         var system = new System(location, description, {
@@ -2940,14 +2944,14 @@ System.prototype.lookupInternalModule = function lookupInternalModule(rel, abs) 
         return self.lookup(self.internalRedirects[id], res);
     }
 
-    var filename = self.name + '/' + id;
+    var filename = self.name + "/" + id;
     // This module system is case-insensitive, but mandates that a module must
     // be consistently identified by the same case convention to avoid problems
     // when migrating to case-sensitive file systems.
     var key = filename.toLowerCase();
     var module = self.modules[key];
 
-    if (module && module.redirect) {
+    if (module && module.redirect && module.redirect !== module.id) {
         return self.lookupInternalModule(module.redirect);
     }
 
@@ -3048,18 +3052,16 @@ System.prototype.makeTranslator = function makeTranslator(id) {
 // Analyze:
 
 System.prototype.analyze = function analyze(module) {
-    var self = this;
     if (
         module.text != null &&
         module.extension != null &&
-        self.analyzers[module.extension]
+        this.analyzers[module.extension]
     ) {
-        return self.analyzers[module.extension](module);
+        return this.analyzers[module.extension](module);
     }
 };
 
 System.prototype.analyzeJavaScript = function analyzeJavaScript(module) {
-    var self = this;
     module.dependencies.push.apply(module.dependencies, parseDependencies(module.text));
 };
 
@@ -3362,7 +3364,7 @@ function basename(id) {
 
 exports.resolve = resolve;
 function resolve(rel, abs) {
-    abs = abs || '';
+    abs = abs || "";
     var source = rel.split("/");
     var target = [];
     var parts;
@@ -3444,14 +3446,13 @@ function Resource() {
     this.system = null;
 }
 
-}],["script-params.js","system","script-params.js",{"./url":9},function (require, exports, module, __filename, __dirname){
+}],["script-params.js","system","script-params.js",{},function (require, exports, module, __filename, __dirname){
 
 // system/script-params.js
 // -----------------------
 
+/*eslint-env browser*/
 "use strict";
-
-var URL = require("./url");
 
 module.exports = getParams;
 function getParams(scriptName) {
@@ -3489,7 +3490,7 @@ function getParams(scriptName) {
 
                 for (j = 0; j < script.attributes.length; j++) {
                     attr = script.attributes[j];
-                    match = attr.name.match(/^data-(.*)$/);
+                    match = attr.name.match(dataRe);
                     if (match) {
                         params[match[1].replace(letterAfterDash, upperCaseChar)] = attr.value;
                     }

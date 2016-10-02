@@ -1,3 +1,4 @@
+/*eslint semi:[0], no-native-reassign:[0]*/
 global = this;
 (function (modules) {
 

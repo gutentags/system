@@ -1,3 +1,4 @@
+/*eslint-env browser*/
 // This is the browser implementation for "url",
 // redirected from "url" within this package by the
 // loader because of the "browser" redirects in package.json.

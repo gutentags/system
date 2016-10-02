@@ -1,3 +1,4 @@
+/*eslint-env node*/
 "use strict";
 
 var Q = require("q");
@@ -47,8 +48,6 @@ NodeSystem.prototype.constructor = NodeSystem;
 NodeSystem.load = CommonSystem.load;
 
 NodeSystem.prototype.read = function read(location, charset) {
-    var self = this;
-    var deferred = Q.defer();
     var path = Location.toPath(location);
     return Q.ninvoke(FS, "readFile", path, charset || "utf8")
     .catch(function (error) {
@@ -77,7 +76,7 @@ NodeSystem.findSystem = function findSystem(directory) {
     return Q.ninvoke(FS, "stat", descriptionLocation)
     .then(function (stat) {
         return stat.isFile();
-    }, function (error) {
+    }, function () {
         return false;
     }).then(function (isFile) {
         if (isFile) {
@@ -99,7 +98,7 @@ NodeSystem.findSystemLocationAndModuleId = function findSystemLocationAndModuleI
             location: Location.fromDirectory(packageDirectory),
             id: "./" + modulePath
         };
-    }, function (error) {
+    }, function () {
         throw new Error("Can't find package " + JSON.stringify(path));
     });
 };

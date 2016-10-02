@@ -1,2 +1,1 @@
-var test = require('test');
-require('./submodule/a');
+require("./submodule/a");

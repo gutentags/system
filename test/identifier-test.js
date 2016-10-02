@@ -1,3 +1,5 @@
+/*eslint no-console:[0]*/
+/*global console*/
 "use strict";
 
 var Identifier = require("../identifier");

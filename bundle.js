@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/*eslint-env node*/
 "use strict";
 
 var FS = require("fs");
@@ -54,7 +55,7 @@ function bundleSystemId(system, id) {
         var main = system.lookup(id);
 
         return (
-            '// @generated\n' +
+            "// @generated\n" +
             boilerplate +
             "(" + payload + ")" +
             "(" + JSON.stringify(main.filename) + ")"
@@ -73,7 +74,7 @@ function bundleLocationId(location, id) {
         }).then(function (system) {
             return bundleSystemId(system, id);
         });
-    })
+    });
 }
 
 exports.bundleDirectoryId = bundleDirectoryId;
@@ -93,7 +94,7 @@ exports.main = main;
 function main() {
     return bundleFile(Path.resolve(process.cwd(), process.argv[2]))
     .then(function (bundle) {
-        console.log(bundle);
+        process.stdout.write(bundle);
     });
 }
 

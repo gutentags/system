@@ -3,7 +3,7 @@
   "version": "1.0.6",
   "author": "Kris Kowal <kris@cixar.com>",
   "description": "Flexible module and resource system",
-  "license": "BSD 3-Clause",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/gutentags/system.git"
@@ -31,10 +31,12 @@
     "q": "^2.0.3"
   },
   "devDependencies": {
+    "eslint": "^3.6.0",
     "q-io": "^2.0.6"
   },
   "scripts": {
-    "test": "node test",
-    "build": "node bundle.js boot-entry.js > boot.js"
+    "test": "npm ls >/dev/null && node test && eslint . && echo pass",
+    "build": "node bundle.js boot-entry.js > boot.js",
+    "lint": "eslint ."
   }
 }

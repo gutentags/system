@@ -1,6 +1,8 @@
+/*eslint-env node*/
+/*eslint no-console:[0]*/
+/*global console*/
 "use strict";
 
-var Q = require("q");
 var Stream = require("q-io/reader");
 var Path = require("path");
 var System = require("../system");
@@ -14,9 +16,9 @@ var test = {
     },
     assert: function (ok, message) {
         if (ok) {
-            console.log('ok - ' + message);
+            console.log("ok - " + message);
         } else {
-            console.log('not ok - ' + message);
+            console.log("not ok - " + message);
             failures++;
         }
     }
@@ -44,21 +46,18 @@ Stream([
     "transitive",
     "translator",
 ]).forEach(function (name) {
-    console.log('# ' + name);
+    console.log("# " + name);
     var location = Location.fromDirectory(Path.join(__dirname, name));
     return System.load(location, {
         modules: {
             test: { exports: test }
         }
-    })
-    .then(function (system) {
-        return system.import("./program")
-    })
-    .catch(function (error) {
-        console.log('not ok - test terminated with error');
+    }).then(function (system) {
+        return system.import("./program");
+    }).catch(function (error) {
+        console.log("not ok - test terminated with error");
         console.log(error.stack);
-    })
+    });
 }).then(function () {
     process.exit(Math.min(failures, 255));
-}).done()
-
+}).done();

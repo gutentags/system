@@ -59,7 +59,7 @@ function basename(id) {
 
 exports.resolve = resolve;
 function resolve(rel, abs) {
-    abs = abs || '';
+    abs = abs || "";
     var source = rel.split("/");
     var target = [];
     var parts;
