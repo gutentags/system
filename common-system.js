@@ -29,8 +29,8 @@ function System(location, description, options) {
     self.systemLoadedPromises = options.systemLoadedPromises || {}; // by system.name
     self.buildSystem = options.buildSystem; // or self if undefined
     self.analyzers = {js: self.analyzeJavaScript};
-    self.compilers = {js: self.compileJavaScript, json: self.compileJson};
-    self.translators = {};
+    self.compilers = {js: self.compileJavaScript};
+    self.translators = {json: self.translateJson};
     self.internalRedirects = {};
     self.externalRedirects = {};
     self.node = !!options.node;
@@ -669,8 +669,8 @@ System.prototype.compileJavaScript = function compileJavaScript(module) {
     return compile(module);
 };
 
-System.prototype.compileJson = function compileJson(module) {
-    module.exports = JSON.parse(module.text);
+System.prototype.translateJson = function translateJson(module) {
+    module.text = "module.exports = " + module.text.trim() + ";\n";
 };
 
 System.prototype.addCompilers = function addCompilers(compilers) {
