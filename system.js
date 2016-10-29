@@ -32,7 +32,7 @@ var node = [
     "url",
     "util",
     "vm",
-    "zlib",
+    "zlib"
 ];
 
 module.exports = NodeSystem;

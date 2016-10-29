@@ -44,7 +44,7 @@ Stream([
     "redirects",
     "relative",
     "transitive",
-    "translator",
+    "translator"
 ]).forEach(function (name) {
     console.log("# " + name);
     var location = Location.fromDirectory(Path.join(__dirname, name));
