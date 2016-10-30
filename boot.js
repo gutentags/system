@@ -2476,8 +2476,8 @@ function System(location, description, options) {
     self.systemLoadedPromises = options.systemLoadedPromises || {}; // by system.name
     self.buildSystem = options.buildSystem; // or self if undefined
     self.analyzers = {js: self.analyzeJavaScript};
-    self.compilers = {js: self.compileJavaScript, json: self.compileJson};
-    self.translators = {};
+    self.compilers = {js: self.compileJavaScript};
+    self.translators = {json: self.translateJson};
     self.internalRedirects = {};
     self.externalRedirects = {};
     self.node = !!options.node;
@@ -2984,9 +2984,9 @@ System.prototype.addExtensions = function (map) {
     for (var index = 0; index < extensions.length; index++) {
         var extension = extensions[index];
         var id = map[extension];
-        this.analyzers[extension] = this.makeLoadStep(id, 'analyze');
-        this.translators[extension] = this.makeLoadStep(id, 'translate');
-        this.compilers[extension] = this.makeLoadStep(id, 'compile');
+        this.analyzers[extension] = this.makeLoadStep(id, "analyze");
+        this.translators[extension] = this.makeLoadStep(id, "translate");
+        this.compilers[extension] = this.makeLoadStep(id, "compile");
     }
 };
 
@@ -3116,8 +3116,8 @@ System.prototype.compileJavaScript = function compileJavaScript(module) {
     return compile(module);
 };
 
-System.prototype.compileJson = function compileJson(module) {
-    module.exports = JSON.parse(module.text);
+System.prototype.translateJson = function translateJson(module) {
+    module.text = "module.exports = " + module.text.trim() + ";\n";
 };
 
 System.prototype.addCompilers = function addCompilers(compilers) {
