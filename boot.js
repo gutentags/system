@@ -2517,11 +2517,11 @@ function System(location, description, options) {
     }
 
     // Local per-extension overrides:
-    if (description.redirects) { self.addRedirects(description.redirects); }
     if (description.extensions) { self.addExtensions(description.extensions); }
     if (description.translators) { self.addTranslators(description.translators); }
     if (description.analyzers) { self.addAnalyzers(description.analyzers); }
     if (description.compilers) { self.addCompilers(description.compilers); }
+    if (description.redirects) { self.addRedirects(description.redirects); }
 }
 
 System.load = function loadSystem(location, options) {

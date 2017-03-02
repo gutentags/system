@@ -42,6 +42,7 @@ Stream([
     "monkeys",
     "nested",
     "redirects",
+    "redirect-extension",
     "relative",
     "transitive",
     "translator"
