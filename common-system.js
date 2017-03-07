@@ -28,6 +28,7 @@ function System(location, description, options) {
     self.systems = options.systems || {}; // by system.name
     self.systemLoadedPromises = options.systemLoadedPromises || {}; // by system.name
     self.buildSystem = options.buildSystem; // or self if undefined
+    self.strategy = options.strategy || 'nested';
     self.analyzers = {js: self.analyzeJavaScript};
     self.compilers = {js: self.compileJavaScript};
     self.translators = {json: self.translateJson};
@@ -278,7 +279,8 @@ System.prototype.actuallyLoadSystem = function (name, abs) {
             systemLoadedPromises: self.systemLoadedPromises,
             buildSystem: buildSystem,
             browser: self.browser,
-            node: self.node
+            node: self.node,
+            strategy: inferStrategy(description)
         });
         self.systems[system.name] = system;
         return system;
@@ -754,7 +756,12 @@ System.prototype.addDependencies = function addDependencies(dependencies) {
         var name = names[index];
         self.dependencies[name] = true;
         if (!self.systemLocations[name]) {
-            var location = URL.resolve(self.location, "node_modules/" + name + "/");
+            var location;
+            if (this.strategy === 'flat') {
+                location = URL.resolve(self.root.location, "node_modules/" + name + "/");
+            } else {
+                location = URL.resolve(self.location, "node_modules/" + name + "/");
+            }
             self.systemLocations[name] = location;
         }
     }
@@ -797,3 +804,12 @@ System.prototype.inspect = function () {
     var self = this;
     return {type: "system", location: self.location};
 };
+
+function inferStrategy(description) {
+    // The existence of an _args property in package.json distinguishes
+    // packages that were installed with npm version 3 or higher.
+    if (description._args) {
+        return 'flat';
+    }
+    return 'nested';
+}
