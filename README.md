@@ -9,8 +9,7 @@ The System module loader can resolve both module and resource locations by
 module identifier across package boundaries.
 
 In addition, System adds support for configuring module translators (text to
-JavaScript text), dependency analyzers, and compilers (text to module factory
-function).
+JavaScript text) and dependency analyzers.
 
 ## Examples of usage
 
