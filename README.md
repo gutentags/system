@@ -47,6 +47,70 @@ Then to load in production:
 <script src="bundle.js"></script>
 ```
 
+## Extensions
+
+System supports plugins for translating modules to JavaScript, on the fly in
+the browser or in the `sysjs` build step.
+The same module loader plugins can work for both development and production,
+leaving little trace of the module system in the generate bundles.
+
+Configure plugins with annotations in `package.json`.
+**Extensions only apply within the scope of the packages that explicitly
+configure them.**
+The following package uses the Guten Tag HTML to JavaScript extension.
+
+```json
+{
+  "dependencies": {
+    "gutentag": "^2.2.0"
+  },
+  "extensions": {
+    "html": "gutentag/extension"
+  },
+  "redirects": {
+    "./main.html": "./play.html"
+  },
+  "scripts": {
+    "build": "sysjs index.js > bundle.js"
+  }
+}
+```
+
+Extensions are modules that implement any combination of `analyze` and
+`translate`.
+
+The `analyze(module)` function takes the CommonJS module object and is
+responsible for populating `module.dependencies` with module references if the
+module depends on other modules at run-time.
+The analyzer may also leave annotations to the `module` object that the
+`translate` function will be able to use.
+
+The `translate(module)` function takes the same CommonJS module object and is
+responsible for converting `module.text` from the language implied by its
+`module.extension`, rewrite that `module.text` to JavaScript, and reassign the
+`module.extension` to `"js"`.
+
+The following extension converts a JSON document containing key-value pairs
+into a module that exports other modules.
+
+```js
+exports.analyze = function (module) {
+    module.model = JSON.parse(module.text);
+    module.dependencies = Object.keys(module.model);
+};
+
+exports.translate = function (module) {
+    module.extension = "js";
+    module.text = module.dependencies.map(function (id) {
+        return "exports[" + JSON.stringify(module.model[id]) + "] = require(" + JSON.stringify(id) + ");\n";
+    }).join("");
+};
+```
+
+Note that alterations made by the translator and analyzer to the `module`
+object are not preserved in `sysjs` build products, so they should be used only
+to communicate with the module system.
+
 ## History
 
 This project started at Motorola Mobility with the work of Tom Robinson
