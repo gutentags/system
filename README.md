@@ -38,7 +38,7 @@ To load in a browser during development:
 To bundle for deployment:
 
 ```
-bundle entry.js > bundle.js
+sysjs entry.js > bundle.js
 ```
 
 Then to load in production:
@@ -60,8 +60,7 @@ Stuart Knightley (@stuk) took over responsibility for maintaining the library
 when work on MontageJS resumed at Montage Studio.
 
 The System module loader is an iteration from that lineage, with a more focused
-scope, targetting npm packages more precisely, an interface more closely
-aligned with the proposed ECMAScript System object, adding support for
+scope, targetting npm packages more precisely, and adding support for
 configurable (per package in package.json) translators, compilers, and
 dependency analyzers.
 
