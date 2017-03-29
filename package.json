@@ -28,12 +28,8 @@
     "./url.js": "./browser-url.js",
     "./system.js": "./browser-system.js"
   },
-  "dependencies": {
-    "q": "^2.0.3"
-  },
   "devDependencies": {
-    "eslint": "^2.13.1",
-    "q-io": "^2.0.6"
+    "eslint": "^2.13.1"
   },
   "scripts": {
     "test": "npm ls >/dev/null && node test && eslint . && echo pass",

@@ -1,7 +1,6 @@
 /*eslint-env node*/
 "use strict";
 
-var Q = require("q");
 var FS = require("fs");
 var Path = require("path");
 var Location = require("./location");
@@ -49,12 +48,16 @@ NodeSystem.load = CommonSystem.load;
 
 NodeSystem.prototype.read = function read(location, charset) {
     var path = Location.toPath(location);
-    return Q.ninvoke(FS, "readFile", path, charset || "utf8")
-    .catch(function (error) {
-        if (error.code === "ENOENT") {
-            error.notFound = true;
-        }
-        throw error;
+    return new Promise(function (resolve, reject) {
+        FS.readFile(path, charset || "utf8", function (error, content) {
+            if (error != null) {
+                if (error.code === "ENOENT") {
+                    error.notFound = true;
+                }
+                return reject(error);
+            }
+            resolve(content);
+        });
     });
 };
 
@@ -70,10 +73,17 @@ NodeSystem.prototype.overlayNode = function overlayNode() {
 NodeSystem.findSystem = function findSystem(directory) {
     var self = this;
     if (directory === Path.dirname(directory)) {
-        return Q.reject(new Error("Can't find package"));
+        return Promise.reject(new Error("Can't find package"));
     }
     var descriptionLocation = Path.join(directory, "package.json");
-    return Q.ninvoke(FS, "stat", descriptionLocation)
+    return new Promise(function (resolve, reject) {
+        FS.stat(descriptionLocation, function (error, stat) {
+            if (error != null) {
+                return reject(error);
+            }
+            resolve(stat);
+        });
+    })
     .then(function (stat) {
         return stat.isFile();
     }, function () {

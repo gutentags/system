@@ -1,7 +1,6 @@
 /*eslint-env browser*/
 "use strict";
 
-var Q = require("q");
 var CommonSystem = require("./common-system");
 
 module.exports = BrowserSystem;
@@ -17,45 +16,44 @@ BrowserSystem.prototype.constructor = BrowserSystem;
 BrowserSystem.load = CommonSystem.load;
 
 BrowserSystem.prototype.read = function read(location, charset, contentType) {
+    return new Promise(function (resolve, reject) {
+        var request = new XMLHttpRequest();
 
-    var request = new XMLHttpRequest();
-    var response = Q.defer();
-
-    function onload() {
-        if (xhrSuccess(request)) {
-            response.resolve(request.responseText);
-        } else {
-            onerror();
-        }
-    }
-
-    function onerror() {
-        var error = new Error("Can't XHR " + JSON.stringify(location));
-        if (request.status === 404 || request.status === 0) {
-            error.code = "ENOENT";
-            error.notFound = true;
-        }
-        response.reject(error);
-    }
-
-    try {
-        request.open("GET", location, true);
-        if (contentType && request.overrideMimeType) {
-            request.overrideMimeType(contentType);
-        }
-        request.onreadystatechange = function () {
-            if (request.readyState === 4) {
-                onload();
+        function onload() {
+            if (xhrSuccess(request)) {
+                resolve(request.responseText);
+            } else {
+                onerror();
             }
-        };
-        request.onload = request.load = onload;
-        request.onerror = request.error = onerror;
-        request.send();
-    } catch (exception) {
-        response.reject(exception);
-    }
+        }
 
-    return response.promise;
+        function onerror() {
+            var error = new Error("Can't XHR " + JSON.stringify(location));
+            if (request.status === 404 || request.status === 0) {
+                error.code = "ENOENT";
+                error.notFound = true;
+            }
+            reject(error);
+        }
+
+        try {
+            request.open("GET", location, true);
+            if (contentType && request.overrideMimeType) {
+                request.overrideMimeType(contentType);
+            }
+            request.onreadystatechange = function () {
+                if (request.readyState === 4) {
+                    onload();
+                }
+            };
+            request.onload = request.load = onload;
+            request.onerror = request.error = onerror;
+            request.send();
+        } catch (exception) {
+            reject(exception);
+        }
+
+    });
 };
 
 // Determine if an XMLHttpRequest was successful
@@ -63,4 +61,3 @@ BrowserSystem.prototype.read = function read(location, charset, contentType) {
 function xhrSuccess(req) {
     return (req.status === 200 || (req.status === 0 && req.responseText));
 }
-

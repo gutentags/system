@@ -2,7 +2,6 @@
 /*global console*/
 "use strict";
 
-var Q = require("q");
 var URL = require("./url");
 var Identifier = require("./identifier");
 var Module = require("./module");
@@ -28,7 +27,7 @@ function System(location, description, options) {
     self.systems = options.systems || {}; // by system.name
     self.systemLoadedPromises = options.systemLoadedPromises || {}; // by system.name
     self.buildSystem = options.buildSystem; // or self if undefined
-    self.strategy = options.strategy || 'nested';
+    self.strategy = options.strategy || "nested";
     self.analyzers = {js: self.analyzeJavaScript};
     self.compilers = {js: self.compileJavaScript};
     self.translators = {json: self.translateJson};
@@ -42,7 +41,7 @@ function System(location, description, options) {
     // TODO options.instrument
     self.systems[self.name] = self;
     self.systemLocations[self.name] = self.location;
-    self.systemLoadedPromises[self.name] = Q(self);
+    self.systemLoadedPromises[self.name] = Promise.resolve(self);
 
     if (options.name != null && options.name !== description.name) {
         console.warn(
@@ -264,10 +263,12 @@ System.prototype.actuallyLoadSystem = function (name, abs) {
     if (self.buildSystem) {
         buildSystem = self.buildSystem.actuallyLoadSystem(name, abs);
     }
-    return Q.all([
+    return Promise.all([
         self.loadSystemDescription(location, name),
         buildSystem
-    ]).spread(function onDescriptionAndBuildSystem(description, buildSystem) {
+    ]).then(function onDescriptionAndBuildSystem(args) {
+        var description = args[0];
+        var buildSystem = args[1];
         var system = new System(location, description, {
             parent: self,
             root: self.root,
@@ -334,7 +335,7 @@ System.prototype.deepCompile = function deepCompile(rel, abs, memo) {
             // XXX no clear idea what to do in this load case.
             // Should never reject, but should cause require to produce an
             // error.
-            return Q();
+            return Promise.resolve();
         }
     } else {
         return self.compileInternalModule(rel, abs, memo);
@@ -353,16 +354,16 @@ System.prototype.compileInternalModule = function compileInternalModule(rel, abs
 
     // Break the cycle of violence
     if (memo[module.key]) {
-        return Q();
+        return Promise.resolve();
     }
     memo[module.key] = true;
 
     if (module.compiled) {
-        return Q();
+        return Promise.resolve();
     }
     module.compiled = true;
-    return Q.try(function () {
-        return Q.all(module.dependencies.map(function (dependency) {
+    return Promise.resolve().then(function () {
+        return Promise.all(module.dependencies.map(function (dependency) {
             return self.deepCompile(dependency, module.id, memo);
         }));
     }).then(function () {
@@ -385,12 +386,15 @@ System.prototype.deepLoad = function deepLoad(rel, abs, memo) {
         var head = Identifier.head(rel);
         var tail = Identifier.tail(rel);
         if (self.dependencies[head]) {
-            return self.loadSystem(head, abs).invoke("loadInternalModule", tail, "", memo);
+            return self.loadSystem(head, abs)
+            .then(function (system) {
+                return system.loadInternalModule(tail, "", memo);
+            });
         } else {
             // XXX no clear idea what to do in this load case.
             // Should never reject, but should cause require to produce an
             // error.
-            return Q();
+            return Promise.resolve();
         }
     } else {
         return self.loadInternalModule(rel, abs, memo);
@@ -416,7 +420,7 @@ System.prototype.loadInternalModule = function loadInternalModule(rel, abs, memo
     // Break the cycle of violence
     memo = memo || {};
     if (memo[module.key]) {
-        return Q();
+        return Promise.resolve();
     }
     memo[module.key] = true;
 
@@ -424,7 +428,8 @@ System.prototype.loadInternalModule = function loadInternalModule(rel, abs, memo
     if (module.loadedPromise) {
         return module.loadedPromise;
     }
-    module.loadedPromise = Q.try(function () {
+    module.loadedPromise = Promise.resolve()
+    .then(function () {
         if (module.factory == null && module.exports == null) {
             return self.read(module.location, "utf-8")
             .then(function (text) {
@@ -454,10 +459,10 @@ System.prototype.loadInternalModule = function loadInternalModule(rel, abs, memo
 
 System.prototype.finishLoadingModule = function finishLoadingModule(module, memo) {
     var self = this;
-    return Q.try(function () {
+    return Promise.resolve().then(function () {
         return self.analyze(module);
     }).then(function () {
-        return Q.all(module.dependencies.map(function onDependency(dependency) {
+        return Promise.all(module.dependencies.map(function onDependency(dependency) {
             return self.deepLoad(dependency, module.id, memo);
         }));
     });
@@ -724,7 +729,7 @@ System.prototype.locateResource = function locateResource(rel, abs) {
             return subsystem.getInternalResource(tail);
         });
     } else {
-        return Q(self.getInternalResource(Identifier.resolve(rel, abs)));
+        return Promise.resolve(self.getInternalResource(Identifier.resolve(rel, abs)));
     }
 };
 
@@ -757,7 +762,7 @@ System.prototype.addDependencies = function addDependencies(dependencies) {
         self.dependencies[name] = true;
         if (!self.systemLocations[name]) {
             var location;
-            if (this.strategy === 'flat') {
+            if (this.strategy === "flat") {
                 location = URL.resolve(self.root.location, "node_modules/" + name + "/");
             } else {
                 location = URL.resolve(self.location, "node_modules/" + name + "/");
@@ -809,7 +814,7 @@ function inferStrategy(description) {
     // The existence of an _args property in package.json distinguishes
     // packages that were installed with npm version 3 or higher.
     if (description._args) {
-        return 'flat';
+        return "flat";
     }
-    return 'nested';
+    return "nested";
 }

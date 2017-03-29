@@ -27,5 +27,5 @@ function boot(params) {
 }
 
 if (require.main === module) {
-    boot().done();
+    boot();
 }
