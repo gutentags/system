@@ -4,7 +4,7 @@
 This is a CommonJS/npm compatible module system.
 It works both client-side and server-side in Node.js.
 For browsers, it supports refresh-to-reload debugging, as well as a build step
-compatible with Browserify to produce bundles for production.
+comparable to Browserify to produce bundles for production.
 The System module loader can resolve both module and resource locations by
 module identifier across package boundaries.
 
