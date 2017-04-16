@@ -108,9 +108,29 @@ exports.translate = function translate(module) {
 };
 ```
 
-Note that alterations made by the translator and analyzer to the `module`
+Alterations made by the translator and analyzer to the `module`
 object are not preserved in `sysjs` build products, so they should be used only
 to communicate with the module system.
+
+Analyzers can also introduce a package to one of their own dependencies.
+This is useful if generated code needs to use a library that the host package
+does not directly depend upon.
+The System module loader enforces dependency relationships between packages.
+A package that is not mentioned in `package.json` or expressly introduced
+through the extension system cannot be loaded.
+
+```js
+var host = module.system;
+
+exports.analyze = function (module) {
+    host.introduce(module.system, "utility");
+    module.dependencies.push("utility");
+};
+
+exports.translate = function (module) {
+    module.text = "require(\"utility\")";
+};
+```
 
 ## History
 

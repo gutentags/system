@@ -675,6 +675,18 @@ System.prototype.addDependencies = function addDependencies(dependencies) {
     }
 };
 
+// introduce allows an analyzer module to introduce a package to a dependency
+// of the analyzer's package.
+System.prototype.introduce = function introduce(system, name) {
+    if (!this.dependencies[name]) {
+        throw new Error("Extension package cannot introduce a module to a package that the analyzer does not directly depend upon.");
+    }
+    system.dependencies[name] = true;
+    if (!system.systemLocations[name]) {
+        system.systemLocations[name] = this.systemLocations[name];
+    }
+};
+
 // Redirects:
 
 System.prototype.addRedirects = function addRedirects(redirects) {

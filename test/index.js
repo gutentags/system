@@ -45,7 +45,8 @@ var test = {
     "translator",
     "translator-package",
     "analyzer",
-    "analyzer-package"
+    "analyzer-package",
+    "introduction"
 ].reduce(function (prev, name) {
     return prev.then(function () {
         console.log("# " + name);
