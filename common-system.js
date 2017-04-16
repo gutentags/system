@@ -29,7 +29,6 @@ function System(location, description, options) {
     self.buildSystem = options.buildSystem; // or self if undefined
     self.strategy = options.strategy || "nested";
     self.analyzers = {js: self.analyzeJavaScript};
-    self.compilers = {js: self.compileJavaScript};
     self.translators = {json: self.translateJson};
     self.internalRedirects = {};
     self.externalRedirects = {};
@@ -73,7 +72,6 @@ function System(location, description, options) {
     if (description.extensions) { self.addExtensions(description.extensions); }
     if (description.translators) { self.addTranslators(description.translators); }
     if (description.analyzers) { self.addAnalyzers(description.analyzers); }
-    if (description.compilers) { self.addCompilers(description.compilers); }
     if (description.redirects) { self.addRedirects(description.redirects); }
 }
 
@@ -301,7 +299,6 @@ System.prototype.normalizeIdentifier = function (id) {
     if (
         !has.call(self.translators, extension) &&
         !has.call(self.analyzers, extension) &&
-        !has.call(self.compilers, extension) &&
         extension !== "js" &&
         extension !== "json"
     ) {
@@ -546,7 +543,6 @@ System.prototype.addExtensions = function (map) {
         var id = map[extension];
         this.analyzers[extension] = this.makeLoadStep(id, "analyze");
         this.translators[extension] = this.makeLoadStep(id, "translate");
-        this.compilers[extension] = this.makeLoadStep(id, "compile");
     }
 };
 
@@ -664,46 +660,14 @@ System.prototype.compile = function (module) {
     if (
         module.factory == null &&
         module.redirect == null &&
-        module.exports == null &&
-        module.extension != null &&
-        self.compilers[module.extension]
+        module.exports == null
     ) {
-        return self.compilers[module.extension](module);
+        compile(module);
     }
-};
-
-System.prototype.compileJavaScript = function compileJavaScript(module) {
-    return compile(module);
 };
 
 System.prototype.translateJson = function translateJson(module) {
     module.text = "module.exports = " + module.text.trim() + ";\n";
-};
-
-System.prototype.addCompilers = function addCompilers(compilers) {
-    var self = this;
-    var extensions = Object.keys(compilers);
-    for (var index = 0; index < extensions.length; index++) {
-        var extension = extensions[index];
-        var id = compilers[extension];
-        self.addCompiler(extension, id);
-    }
-};
-
-System.prototype.addCompiler = function (extension, id) {
-    var self = this;
-    self.compilers[extension] = self.makeCompiler(id);
-};
-
-System.prototype.makeCompiler = function makeCompiler(id) {
-    var self = this;
-    return function compile(module) {
-        return self.getBuildSystem()
-        .import(id)
-        .then(function (compile) {
-            return compile(module);
-        });
-    };
 };
 
 // Resource:

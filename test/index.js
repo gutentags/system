@@ -26,8 +26,6 @@ var test = {
 [
     "case-sensitive",
     "comments",
-    "compiler-package",
-    "compiler",
     "cyclic",
     "determinism",
     "dev-dependencies",
