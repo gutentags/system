@@ -1,10 +1,10 @@
 {
     "name": "*",
     "version": "*",
-    "translators": {
-        "text": "mr-text"
+    "extensions": {
+        "text": "text-extension"
     },
     "dependencies": {
-        "mr-text": "*"
+        "text-extension": "*"
     }
 }

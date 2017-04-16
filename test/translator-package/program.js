@@ -1,6 +1,4 @@
-
+"use strict";
 var test = require("test");
 var hello = require("./hello.text");
-test.assert(hello === "Hello, World!\n");
-test.print("DONE", "info");
-
+test.assert(hello === "Hello, World!\n", "imports text using packaged extension");

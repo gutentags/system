@@ -93,15 +93,17 @@ The following extension converts a JSON document containing key-value pairs
 into a module that exports other modules.
 
 ```js
-exports.analyze = function (module) {
+exports.analyze = function analyze(module) {
     module.model = JSON.parse(module.text);
     module.dependencies = Object.keys(module.model);
 };
 
-exports.translate = function (module) {
-    module.extension = "js";
+exports.translate = function translate(module) {
     module.text = module.dependencies.map(function (id) {
-        return "exports[" + JSON.stringify(module.model[id]) + "] = require(" + JSON.stringify(id) + ");\n";
+        return (
+            "exports[" + JSON.stringify(module.model[id]) + "] = " +
+            "require(" + JSON.stringify(id) + ");\n"
+        );
     }).join("");
 };
 ```

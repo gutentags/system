@@ -42,7 +42,10 @@ var test = {
     "redirect-extension",
     "relative",
     "transitive",
-    "translator"
+    "translator",
+    "translator-package",
+    "analyzer",
+    "analyzer-package"
 ].reduce(function (prev, name) {
     return prev.then(function () {
         console.log("# " + name);

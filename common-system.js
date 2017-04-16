@@ -16,7 +16,7 @@ function System(location, description, options) {
     var self = this;
     options = options || {};
     description = description || {};
-    self.name = description.name || "";
+    self.name = options.name || description.name || "";
     self.location = location;
     self.description = description;
     self.dependencies = {};
@@ -42,10 +42,15 @@ function System(location, description, options) {
     self.systemLocations[self.name] = self.location;
     self.systemLoadedPromises[self.name] = Promise.resolve(self);
 
-    if (options.name != null && options.name !== description.name) {
+    if (options.name != null && description.name == null) {
         console.warn(
             "Package loaded by name " + JSON.stringify(options.name) +
-            " bears name " + JSON.stringify(description.name)
+            " has no name"
+        );
+    } else if (options.name != null && options.name !== description.name) {
+        console.warn(
+            "Package loaded by name " + JSON.stringify(options.name) +
+            " has mismatched name " + JSON.stringify(description.name)
         );
     }
 
@@ -572,37 +577,8 @@ System.prototype.translate = function translate(module) {
     }
 };
 
-System.prototype.addTranslators = function addTranslators(translators) {
-    var self = this;
-    var extensions = Object.keys(translators);
-    for (var index = 0; index < extensions.length; index++) {
-        var extension = extensions[index];
-        var id = translators[extension];
-        self.addTranslator(extension, id);
-    }
-};
-
-System.prototype.addTranslator = function (extension, id) {
-    var self = this;
-    self.translators[extension] = self.makeTranslator(id);
-};
-
-System.prototype.makeTranslator = function makeTranslator(id) {
-    var self = this;
-    return function translate(module) {
-        return self.getBuildSystem()
-        .import(id)
-        .then(function onTranslatorImported(translate) {
-            if (typeof translate !== "function") {
-                throw new Error(
-                    "Can't translate " + JSON.stringify(module.id) +
-                    " because " + JSON.stringify(id) + " did not export a function"
-                );
-            }
-            module.extension = "js";
-            return translate(module);
-        });
-    };
+System.prototype.translateJson = function translateJson(module) {
+    module.text = "module.exports = " + module.text.trim() + ";\n";
 };
 
 // Analyze:
@@ -621,42 +597,9 @@ System.prototype.analyzeJavaScript = function analyzeJavaScript(module) {
     module.dependencies.push.apply(module.dependencies, parseDependencies(module.text));
 };
 
-System.prototype.addAnalyzers = function addAnalyzers(analyzers) {
-    var self = this;
-    var extensions = Object.keys(analyzers);
-    for (var index = 0; index < extensions.length; index++) {
-        var extension = extensions[index];
-        var id = analyzers[extension];
-        self.addAnalyzer(extension, id);
-    }
-};
-
-System.prototype.addAnalyzer = function (extension, id) {
-    var self = this;
-    self.analyzers[extension] = self.makeAnalyzer(id);
-};
-
-System.prototype.makeAnalyzer = function makeAnalyzer(id) {
-    var self = this;
-    return function analyze(module) {
-        return self.getBuildSystem()
-        .import(id)
-        .then(function onAnalyzerImported(analyze) {
-            if (typeof analyze !== "function") {
-                throw new Error(
-                    "Can't analyze " + JSON.stringify(module.id) +
-                    " because " + JSON.stringify(id) + " did not export a function"
-                );
-            }
-            return analyze(module);
-        });
-    };
-};
-
 // Compile:
 
 System.prototype.compile = function (module) {
-    var self = this;
     if (
         module.factory == null &&
         module.redirect == null &&
@@ -664,10 +607,6 @@ System.prototype.compile = function (module) {
     ) {
         compile(module);
     }
-};
-
-System.prototype.translateJson = function translateJson(module) {
-    module.text = "module.exports = " + module.text.trim() + ";\n";
 };
 
 // Resource:
