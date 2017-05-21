@@ -75,8 +75,6 @@ function System(location, description, options) {
 
     // Local per-extension overrides:
     if (description.extensions) { self.addExtensions(description.extensions); }
-    if (description.translators) { self.addTranslators(description.translators); }
-    if (description.analyzers) { self.addAnalyzers(description.analyzers); }
     if (description.redirects) { self.addRedirects(description.redirects); }
 }
 
