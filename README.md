@@ -34,6 +34,17 @@ To load in a browser during development:
 <script src="node_modules/system/boot.js" data-import="./entry"></script>
 ```
 
+If the root of the package is a different directory, the module loader will
+need to locate it.
+
+```html
+<script
+    src="node_modules/system/boot.js"
+    data-import="./entry"
+    data-package="../"
+></script>
+```
+
 To bundle for deployment:
 
 ```
