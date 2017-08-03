@@ -11,6 +11,8 @@
   - The boot script now depends on the global URL and Promise objects instead
     of using Q promises and a trick with base and anchor tags for URL
     resolution.
+  - The executable bundler is now called `wc` for "web compiler", like `cc` but
+    funny maybe.
 
 # 1.3
 
