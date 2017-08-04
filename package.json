@@ -1,6 +1,6 @@
 {
   "name": "system",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "author": "Kris Kowal <kris@cixar.com>",
   "description": "Flexible module and resource system",
   "license": "MIT",
