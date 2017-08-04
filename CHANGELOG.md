@@ -13,6 +13,9 @@
     resolution.
   - The executable bundler is now called `wc` for "web compiler", like `cc` but
     funny maybe.
+* 1
+  - Fixed `wc`, makes it `jscat`, before anyone notices that `wc` was a
+    terrible idea.
 
 # 1.3
 
